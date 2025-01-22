@@ -1,9 +1,14 @@
 package models
 
-import "net"
+import (
+	"net"
+	"sync"
+)
 
 type Server struct {
 	ListenAddr string
 	Ln         net.Listener
-	Players    [2]*Player
+
+	mu      sync.Mutex
+	Players [2]*Player
 }
