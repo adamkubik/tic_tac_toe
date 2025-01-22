@@ -9,6 +9,6 @@ type Server struct {
 	ListenAddr string
 	Ln         net.Listener
 
-	mu      sync.Mutex
+	Mu      sync.Mutex
 	Players [2]*Player
 }
