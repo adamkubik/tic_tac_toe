@@ -1,94 +1,61 @@
 package server
 
 import (
-	"bufio"
-	"fmt"
 	"log"
 	"net"
 	"tic_tac_toe/internal/tic_tac_toe/models"
-	"time"
 )
 
 func NewServer(address string) *models.Server {
 	return &models.Server{
 		ListenAddr: address,
+		ConnsChan:  make(chan net.Conn),
 	}
 }
 
-func ListenNewConn(s *models.Server) error {
+func ListenAndPair(s *models.Server) error {
 	listener, err := net.Listen("tcp", s.ListenAddr)
 	if err != nil {
-		return fmt.Errorf("listening server error: %v", err)
+		return err
 	}
-	s.Ln = listener
 	defer listener.Close()
 
-	log.Printf("server is currently running on %s", s.ListenAddr)
+	s.Listener = listener
 
-	go AcceptConnections(s)
-	waitForPlayers(s)
+	log.Printf("server is listening on %s", s.ListenAddr)
+
+	go AcceptNewConns(s)
+
+	HandleConns(s)
+
 	return nil
 }
 
-func AcceptConnections(s *models.Server) {
-	for s.Players[0] == nil || s.Players[1] == nil {
-		conn, err := s.Ln.Accept()
+func AcceptNewConns(s *models.Server) {
+	for {
+		conn, err := s.Listener.Accept()
 		if err != nil {
-			fmt.Println("Error accepting connection:", err)
+			log.Printf("accepting connection error: %v", err)
 			continue
 		}
-		log.Printf("server now accepted new connection from: %s", conn.RemoteAddr().String())
 
-		player := models.Player{
-			Conn: conn,
-		}
-		s.Mu.Lock()
-		if s.Players[0] == nil {
-			player.Symbol = "X"
-			s.Players[0] = &player
-		} else {
-			player.Symbol = "O"
-			s.Players[1] = &player
-		}
-		s.Mu.Unlock()
+		log.Printf("new success connection from %s", conn.RemoteAddr())
+
+		s.ConnsChan <- conn
 	}
 }
 
-func waitForPlayers(s *models.Server) {
+func HandleConns(s *models.Server) {
 	for {
-		s.Mu.Lock()
-		if s.Players[0] != nil && s.Players[1] != nil {
-			s.Mu.Unlock()
-			break
-		}
-		s.Mu.Unlock()
-		time.Sleep(1 * time.Second)
-	}
+		conn1 := <-s.ConnsChan
+		conn2 := <-s.ConnsChan
 
-	game := models.Game{
-		Player1:       *s.Players[0],
-		Player2:       *s.Players[1],
-		OnGoing:       true,
-		CurrentPlayer: *s.Players[0],
-	}
+		log.Printf("creating game with %s and %s", conn1.RemoteAddr(), conn2.RemoteAddr())
 
-	startGame(&game)
+		go StartGame(conn1, conn2)
+	}
 }
 
-func startGame(g *models.Game) {
-	sendMessage(g.Player1.Conn, "Both players are connected. The game will start now!")
-	sendMessage(g.Player2.Conn, "Both players are connected. The game will start now!")
-
-	fmt.Println("Starting the game...")
-}
-
-func sendMessage(conn net.Conn, message string) {
-	if conn == nil {
-		return
-	}
-	writer := bufio.NewWriter(conn)
-	_, err := writer.WriteString(message + "\n")
-	if err == nil {
-		writer.Flush()
-	}
+func StartGame(first net.Conn, second net.Conn) {
+	log.Printf("Game started for players: %s and %s", first.RemoteAddr().String(), second.RemoteAddr().String())
 }
