@@ -5,7 +5,8 @@ import (
 )
 
 type Server struct {
-	ListenAddr string
-	Listener   net.Listener
-	ConnsChan  chan Player
+	ListenAddr  string
+	Listener    net.Listener
+	ConnsChan   chan Player
+	ResultsChan chan GameResult
 }
