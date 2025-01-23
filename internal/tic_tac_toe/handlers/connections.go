@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bufio"
+	"fmt"
 	"log"
 	"net"
 	"strings"
@@ -13,6 +14,7 @@ func NewServer(address string) *models.Server {
 		ListenAddr:  address,
 		ConnsChan:   make(chan models.Player),
 		ResultsChan: make(chan models.GameResult),
+		Games:       make(map[string]*models.Game),
 	}
 }
 
@@ -50,9 +52,29 @@ func AcceptNewConns(s *models.Server) {
 }
 
 func handleNewConn(s *models.Server, conn net.Conn) {
-	conn.Write([]byte("please enter your nickname: "))
+	conn.Write([]byte("Enter 'play' to join a game or 'spectate' to watch: "))
 
 	reader := bufio.NewReader(conn)
+	choice, err := reader.ReadString('\n')
+	if err != nil {
+		log.Printf("Error reading choice: %v", err)
+		conn.Close()
+		return
+	}
+	choice = strings.TrimSpace(strings.ToLower(choice))
+
+	if choice == "play" {
+		handlePlayerConnection(s, conn, reader)
+	} else if choice == "spectate" {
+		handleSpectatorConnection(s, conn, reader)
+	} else {
+		conn.Write([]byte("Invalid choice. Disconnecting.\n"))
+		conn.Close()
+	}
+}
+
+func handlePlayerConnection(s *models.Server, conn net.Conn, reader *bufio.Reader) {
+	conn.Write([]byte("Enter your username: "))
 	username, err := reader.ReadString('\n')
 	if err != nil {
 		log.Printf("error reading username: %v", err)
@@ -71,6 +93,38 @@ func handleNewConn(s *models.Server, conn net.Conn) {
 	}
 
 	s.ConnsChan <- player
+}
+
+func handleSpectatorConnection(s *models.Server, conn net.Conn, reader *bufio.Reader) {
+	if len(s.Games) == 0 {
+		conn.Write([]byte("No games are currently active. Disconnecting.\n"))
+		conn.Close()
+		return
+	}
+
+	conn.Write([]byte("Available games:\n"))
+	for id, game := range s.Games {
+		conn.Write([]byte(fmt.Sprintf("Game ID: %s (Players: %s vs %s)\n", id, game.Player1.NickName, game.Player2.NickName)))
+	}
+
+	conn.Write([]byte("Enter the ID of the game you want to spectate: "))
+	gameID, err := reader.ReadString('\n')
+	if err != nil {
+		log.Printf("Error reading game ID: %v", err)
+		conn.Close()
+		return
+	}
+	gameID = strings.TrimSpace(gameID)
+
+	game, ok := s.Games[gameID]
+	if !ok {
+		conn.Write([]byte("Invalid game ID. Disconnecting.\n"))
+		conn.Close()
+		return
+	}
+
+	*game.Spectators = append(*game.Spectators, models.Spectator{Conn: conn})
+	conn.Write([]byte(fmt.Sprintf("You are now spectating game %s.\n", gameID)))
 }
 
 func HandleConns(s *models.Server) {
