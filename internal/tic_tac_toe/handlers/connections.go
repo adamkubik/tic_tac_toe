@@ -1,15 +1,17 @@
-package server
+package handlers
 
 import (
+	"bufio"
 	"log"
 	"net"
+	"strings"
 	"tic_tac_toe/internal/tic_tac_toe/models"
 )
 
 func NewServer(address string) *models.Server {
 	return &models.Server{
 		ListenAddr: address,
-		ConnsChan:  make(chan net.Conn),
+		ConnsChan:  make(chan models.Player),
 	}
 }
 
@@ -41,21 +43,40 @@ func AcceptNewConns(s *models.Server) {
 
 		log.Printf("new success connection from %s", conn.RemoteAddr())
 
-		s.ConnsChan <- conn
+		go handleNewConn(s, conn)
 	}
+}
+
+func handleNewConn(s *models.Server, conn net.Conn) {
+	conn.Write([]byte("please enter your nickname: "))
+
+	reader := bufio.NewReader(conn)
+	username, err := reader.ReadString('\n')
+	if err != nil {
+		log.Printf("error reading username: %v", err)
+		conn.Close()
+		return
+	}
+	username = strings.TrimSpace(username)
+
+	log.Printf("received username %s from %s", username, conn.RemoteAddr())
+
+	player := models.Player{
+		IP:       conn.RemoteAddr().String(),
+		Conn:     conn,
+		NickName: username,
+	}
+
+	s.ConnsChan <- player
 }
 
 func HandleConns(s *models.Server) {
 	for {
-		conn1 := <-s.ConnsChan
-		conn2 := <-s.ConnsChan
+		player1 := <-s.ConnsChan
+		player2 := <-s.ConnsChan
 
-		log.Printf("creating game with %s and %s", conn1.RemoteAddr(), conn2.RemoteAddr())
+		log.Printf("creating game with %s and %s", player1.NickName, player2.NickName)
 
-		go StartGame(conn1, conn2)
+		go StartGame(player1, player2)
 	}
-}
-
-func StartGame(first net.Conn, second net.Conn) {
-	log.Printf("Game started for players: %s and %s", first.RemoteAddr().String(), second.RemoteAddr().String())
 }
