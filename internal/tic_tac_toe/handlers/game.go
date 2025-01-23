@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"tic_tac_toe/internal/tic_tac_toe/models"
+
+	"github.com/google/uuid"
 )
 
 func StartGame(p1 models.Player, p2 models.Player, s *models.Server) {
@@ -13,7 +15,11 @@ func StartGame(p1 models.Player, p2 models.Player, s *models.Server) {
 		{" ", " ", " "},
 	}
 
+	spectators := make([]models.Spectator, 0, 10)
+	gameId := uuid.New().String()
+
 	g := models.Game{
+		ID:            gameId,
 		Player1:       p1,
 		Player2:       p2,
 		OnGoing:       true,
@@ -22,7 +28,10 @@ func StartGame(p1 models.Player, p2 models.Player, s *models.Server) {
 		Board:         &board,
 		Winner:        nil,
 		Loser:         nil,
+		Spectators:    &spectators,
 	}
+
+	s.Games[gameId] = &g
 
 	sendMessage(g.CurrentPlayer, "The game is starting... you're player 'X'\n")
 	sendMessage(g.WaitingPlayer, "The game is starting... you're player 'O'\n")
@@ -31,8 +40,10 @@ func StartGame(p1 models.Player, p2 models.Player, s *models.Server) {
 
 func playGame(g *models.Game, s *models.Server) {
 	for g.OnGoing {
-		sendBoard(g.CurrentPlayer, g.Board)
+		board := getBoard(g.Board)
+		sendMessage(g.CurrentPlayer, board)
 		sendMessage(g.WaitingPlayer, "Waiting for your oponent's turn...\n")
+		sendBoardToSpectators(g, board)
 
 		var row, col int
 		for {
@@ -49,27 +60,28 @@ func playGame(g *models.Game, s *models.Server) {
 		}
 
 		g.Board[row][col] = g.CurrentPlayer.Symbol
-
+		board = getBoard(g.Board)
 		if checkWin(g.Board, g.CurrentPlayer.Symbol) {
 			g.Winner = g.CurrentPlayer
 			g.Loser = g.WaitingPlayer
 			g.OnGoing = false
-			sendBoard(g.CurrentPlayer, g.Board)
-			sendBoard(g.WaitingPlayer, g.Board)
+			sendMessage(g.CurrentPlayer, board)
+			sendMessage(g.WaitingPlayer, board)
+			sendBoardToSpectators(g, board)
 			break
 		} else if isDraw(g.Board) {
 			g.OnGoing = false
 			break
 		}
 
-		sendBoard(g.CurrentPlayer, g.Board)
+		sendMessage(g.CurrentPlayer, board)
 		g.CurrentPlayer, g.WaitingPlayer = g.WaitingPlayer, g.CurrentPlayer
 	}
 
 	announceResult(g, s)
 }
 
-func sendBoard(player *models.Player, board *[3][3]string) {
+func getBoard(board *[3][3]string) string {
 	var boardStr strings.Builder
 
 	boardStr.WriteString("\n")
@@ -96,7 +108,37 @@ func sendBoard(player *models.Player, board *[3][3]string) {
 	}
 	boardStr.WriteString("\n")
 
-	sendMessage(player, boardStr.String())
+	return boardStr.String()
+}
+
+func sendBoardToSpectators(game *models.Game, board string) {
+	if game.Spectators != nil {
+		for _, spectator := range *game.Spectators {
+			spectator.Conn.Write([]byte(board))
+			if game.OnGoing {
+				spectator.Conn.Write([]byte(fmt.Sprintf("%s's turn:\n", game.CurrentPlayer.NickName)))
+			}
+		}
+	}
+}
+
+func removeSpectator(spectators *[]models.Spectator, spectator *models.Spectator) {
+	if spectators != nil {
+		for i, s := range *spectators {
+			if s.Conn == spectator.Conn {
+				*spectators = append((*spectators)[:i], (*spectators)[i+1:]...)
+				break
+			}
+		}
+	}
+}
+
+func disconnectSpectators(spectators *[]models.Spectator) {
+	if spectators != nil {
+		for _, s := range *spectators {
+			s.Conn.Close()
+		}
+	}
 }
 
 func requestMove(player *models.Player) string {
@@ -154,6 +196,7 @@ func isDraw(board *[3][3]string) bool {
 }
 
 func announceResult(g *models.Game, s *models.Server) {
+	resultMessage := ""
 	result := models.GameResult{
 		Player1: g.Player1,
 		Player2: g.Player2,
@@ -162,17 +205,26 @@ func announceResult(g *models.Game, s *models.Server) {
 	}
 
 	if g.Winner != nil {
-		sendMessage(g.Winner, "Game Over. You won!\n")
-		sendMessage(g.Loser, "Game Over. You lost!\n")
 		result.Winner = g.Winner
 		result.Loser = g.Loser
+		resultMessage = fmt.Sprintf("Game Over. %s wins!\n", g.Winner.NickName)
 	} else {
-		sendMessage(&g.Player1, "Game Over. It's a draw!\n")
-		sendMessage(&g.Player2, "Game Over. It's a draw!\n")
+		resultMessage = "Game Over. It's a draw!\n"
 	}
+
+	sendMessage(&g.Player1, resultMessage)
+	sendMessage(&g.Player2, resultMessage)
+
+	for _, spectator := range *g.Spectators {
+		spectator.Conn.Write([]byte(resultMessage))
+	}
+
+	disconnectSpectators(g.Spectators)
 
 	g.Player1.Conn.Close()
 	g.Player2.Conn.Close()
+	delete(s.Games, g.ID)
+
 	s.ResultsChan <- result
 }
 
