@@ -7,5 +7,5 @@ import (
 type Server struct {
 	ListenAddr string
 	Listener   net.Listener
-	ConnsChan  chan net.Conn
+	ConnsChan  chan Player
 }
