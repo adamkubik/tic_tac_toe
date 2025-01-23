@@ -9,4 +9,5 @@ type Server struct {
 	Listener    net.Listener
 	ConnsChan   chan Player
 	ResultsChan chan GameResult
+	Games       map[string]*Game
 }
