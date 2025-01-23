@@ -10,8 +10,9 @@ import (
 
 func NewServer(address string) *models.Server {
 	return &models.Server{
-		ListenAddr: address,
-		ConnsChan:  make(chan models.Player),
+		ListenAddr:  address,
+		ConnsChan:   make(chan models.Player),
+		ResultsChan: make(chan models.GameResult),
 	}
 }
 
@@ -27,6 +28,7 @@ func ListenAndPair(s *models.Server) error {
 	log.Printf("server is listening on %s", s.ListenAddr)
 
 	go AcceptNewConns(s)
+	go ProcessGameResults(s.ResultsChan)
 
 	HandleConns(s)
 
@@ -75,8 +77,11 @@ func HandleConns(s *models.Server) {
 		player1 := <-s.ConnsChan
 		player2 := <-s.ConnsChan
 
+		player1.Symbol = "X"
+		player2.Symbol = "O"
+
 		log.Printf("creating game with %s and %s", player1.NickName, player2.NickName)
 
-		go StartGame(player1, player2)
+		go StartGame(player1, player2, s)
 	}
 }
