@@ -62,6 +62,7 @@ func handleNewConn(s *models.Server, conn net.Conn) {
 	username = strings.TrimSpace(username)
 
 	log.Printf("received username %s from %s", username, conn.RemoteAddr())
+	conn.Write([]byte("Waiting for an oponent...\n"))
 
 	player := models.Player{
 		IP:       conn.RemoteAddr().String(),
