@@ -1,5 +1,7 @@
 package models
 
+import "sync"
+
 type Game struct {
 	ID            string
 	Player1       Player
@@ -10,8 +12,11 @@ type Game struct {
 	WaitingPlayer *Player
 	Winner        *Player
 	Loser         *Player
-	Spectators    *map[Spectator]struct{}
-	Error         error
+
+	SpectatorsMu sync.Mutex
+	Spectators   *map[Spectator]struct{}
+
+	Error error
 }
 
 type GameResult struct {
