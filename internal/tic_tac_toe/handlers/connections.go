@@ -55,7 +55,7 @@ func AcceptNewConns(s *models.Server) {
 }
 
 func handleNewConn(s *models.Server, conn net.Conn) {
-	_, err := conn.Write([]byte("Enter 'play' to join a game or 'spectate' to watch: "))
+	_, err := conn.Write([]byte("Enter 'login' to authenticate or 'spectator' to watch: "))
 	if err != nil {
 		LogAndClose(fmt.Sprintf("writing to connection error: %v", err), conn)
 		return
@@ -70,9 +70,9 @@ func handleNewConn(s *models.Server, conn net.Conn) {
 	}
 	choice = strings.TrimSpace(strings.ToLower(choice))
 
-	if choice == "play" {
-		handlePlayerConnection(s, conn, reader)
-	} else if choice == "spectate" {
+	if choice == "login" {
+		handleLogin(s, conn, reader)
+	} else if choice == "spectator" {
 		handleSpectatorConnection(s, conn, reader)
 	} else {
 		_, err = conn.Write([]byte("Invalid choice. Disconnecting.\n"))
@@ -82,25 +82,25 @@ func handleNewConn(s *models.Server, conn net.Conn) {
 	}
 }
 
-func handlePlayerConnection(s *models.Server, conn net.Conn, reader *bufio.Reader) {
-	_, err := conn.Write([]byte("Enter your username: "))
+func handleLogin(s *models.Server, conn net.Conn, reader *bufio.Reader) {
+	_, err := conn.Write([]byte("Enter your nickname: "))
 	if err != nil {
 		LogAndClose(fmt.Sprintf("writing to connection error: %v", err), conn)
 		return
 	}
 
-	username, err := reader.ReadString('\n')
+	nickname, err := reader.ReadString('\n')
 	if err != nil {
-		LogAndClose(fmt.Sprintf("error reading username: %v", err), conn)
+		LogAndClose(fmt.Sprintf("error reading nickname: %v", err), conn)
 		return
 	}
-	username = strings.TrimSpace(username)
+	nickname = strings.TrimSpace(nickname)
 
-	log.Printf("received username %s from %s", username, conn.RemoteAddr())
+	log.Printf("received nickname %s from %s", nickname, conn.RemoteAddr())
 
-	succ, err := ProcessNickname(s.DB, conn, reader, username)
+	succ, err := ProcessNickname(s.DB, conn, reader, nickname)
 	if err != nil {
-		conn.Write([]byte("Error processing username. Disconnecting.\n"))
+		conn.Write([]byte("Error processing nickname. Disconnecting.\n"))
 		conn.Close()
 		return
 	}
@@ -110,7 +110,47 @@ func handlePlayerConnection(s *models.Server, conn net.Conn, reader *bufio.Reade
 		return
 	}
 
-	_, err = conn.Write([]byte("Waiting for an oponent...\n"))
+	for {
+		_, err = conn.Write([]byte("Enter 'play' to join a game or 'stats' to view your statistics: "))
+		if err != nil {
+			LogAndClose(fmt.Sprintf("writing to connection error: %v", err), conn)
+			return
+		}
+
+		choice, err := reader.ReadString('\n')
+		if err != nil {
+			log.Printf("Error reading choice: %v", err)
+			conn.Close()
+			return
+		}
+		choice = strings.TrimSpace(strings.ToLower(choice))
+
+		if choice == "play" {
+			handlePlayerConnection(s, conn, reader, nickname)
+			break
+		} else if choice == "stats" {
+			handleStatsRequest(s, conn, reader, nickname)
+		} else {
+			_, err = conn.Write([]byte("Invalid choice. Please enter 'play' or 'stats'.\n"))
+			if err != nil {
+				LogAndClose(fmt.Sprintf("writing to connection error: %v", err), conn)
+				return
+			}
+		}
+	}
+}
+
+func handleStatsRequest(s *models.Server, conn net.Conn, reader *bufio.Reader, username string) {
+	err := PrintPlayerStats(s.DB, username, conn, reader)
+	if err != nil {
+		conn.Write([]byte("Error retrieving statistics. Disconnecting.\n"))
+		conn.Close()
+		return
+	}
+}
+
+func handlePlayerConnection(s *models.Server, conn net.Conn, reader *bufio.Reader, nickname string) {
+	_, err := conn.Write([]byte("Waiting for an oponent...\n"))
 	if err != nil {
 		LogAndClose(fmt.Sprintf("writing to connection error: %v", err), conn)
 		return
@@ -119,7 +159,7 @@ func handlePlayerConnection(s *models.Server, conn net.Conn, reader *bufio.Reade
 	player := models.Player{
 		IP:       conn.RemoteAddr().String(),
 		Conn:     conn,
-		NickName: username,
+		NickName: nickname,
 	}
 
 	s.ConnsChan <- player
