@@ -233,14 +233,44 @@ func checkWin(board *[3][3]string, symbol string) bool {
 }
 
 func isDraw(board *[3][3]string) bool {
-	for _, row := range board {
-		for _, cell := range row {
-			if cell == " " {
-				return false
+	winPatterns := [][][2]int{
+		// Rows
+		{{0, 0}, {0, 1}, {0, 2}},
+		{{1, 0}, {1, 1}, {1, 2}},
+		{{2, 0}, {2, 1}, {2, 2}},
+		// Columns
+		{{0, 0}, {1, 0}, {2, 0}},
+		{{0, 1}, {1, 1}, {2, 1}},
+		{{0, 2}, {1, 2}, {2, 2}},
+		// Diagonals
+		{{0, 0}, {1, 1}, {2, 2}},
+		{{0, 2}, {1, 1}, {2, 0}},
+	}
+
+	canWin := func(player string) bool {
+		for _, pattern := range winPatterns {
+			count := 0
+			empty := 0
+			for _, pos := range pattern {
+				row, col := pos[0], pos[1]
+				if board[row][col] == player {
+					count++
+				} else if board[row][col] == " " {
+					empty++
+				}
+			}
+			if count > 0 && count+empty == 3 {
+				return true
 			}
 		}
+		return false
 	}
-	return true
+
+	if !canWin("X") && !canWin("O") {
+		return true
+	}
+
+	return false
 }
 
 func announceResult(g *models.Game, s *models.Server) {
