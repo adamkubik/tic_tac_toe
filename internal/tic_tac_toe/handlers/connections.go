@@ -126,7 +126,7 @@ func handleLogin(s *models.Server, conn net.Conn, reader *bufio.Reader) {
 		choice = strings.TrimSpace(strings.ToLower(choice))
 
 		if choice == "play" {
-			handlePlayerConnection(s, conn, reader, nickname)
+			handlePlayerConnection(s, conn, nickname)
 			break
 		} else if choice == "stats" {
 			handleStatsRequest(s, conn, reader, nickname)
