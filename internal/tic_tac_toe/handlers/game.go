@@ -235,19 +235,3 @@ func announceResult(g *models.Game, s *models.Server) {
 func sendMessage(player *models.Player, message string) {
 	player.Conn.Write([]byte(message))
 }
-
-func ProcessGameResults(resultsChan <-chan models.GameResult) {
-	for result := range resultsChan {
-		fmt.Printf("Game finished!\n")
-		fmt.Printf("Player 1: %s (%s)\n", result.Player1.NickName, result.Player1.Symbol)
-		fmt.Printf("Player 2: %s (%s)\n", result.Player2.NickName, result.Player2.Symbol)
-
-		if result.Winner != nil {
-			fmt.Printf("Winner: %s\n", result.Winner.NickName)
-		} else {
-			fmt.Printf("It's a draw!\n")
-		}
-
-		fmt.Println("----------------------")
-	}
-}
