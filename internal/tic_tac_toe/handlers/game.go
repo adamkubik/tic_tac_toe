@@ -31,9 +31,15 @@ func StartGame(p1 models.Player, p2 models.Player, s *models.Server) {
 	}
 
 	s.Games[gameId] = &g
+	if err := sendMessage(g.CurrentPlayer, "The game is starting... you're player 'X'\n"); err != nil {
+		handleError(&g, s, err)
+		return
+	}
+	if err := sendMessage(g.CurrentPlayer, "The game is starting... you're player '0'\n"); err != nil {
+		handleError(&g, s, err)
+		return
+	}
 
-	sendMessage(g.CurrentPlayer, "The game is starting... you're player 'X'\n")
-	sendMessage(g.WaitingPlayer, "The game is starting... you're player 'O'\n")
 	playGame(&g, s)
 }
 
