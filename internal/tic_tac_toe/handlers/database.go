@@ -129,7 +129,7 @@ func UpdatePlayerStats(db *sql.DB, result models.GameResult) error {
 	return nil
 }
 
-func PrintPlayerStats(dB *sql.DB, nickname string, conn net.Conn, reader *bufio.Reader) error {
+func PrintPlayerStats(dB *sql.DB, nickname string, conn net.Conn) error {
 	var numberOfGames, wins, losses, draws int
 	query := "SELECT all_games, wins, losses, draws FROM players WHERE nickname=$1"
 	err := dB.QueryRow(query, nickname).Scan(&numberOfGames, &wins, &losses, &draws)
@@ -144,6 +144,50 @@ func PrintPlayerStats(dB *sql.DB, nickname string, conn net.Conn, reader *bufio.
 	_, err = conn.Write([]byte(stats))
 	if err != nil {
 		log.Printf("error writing player stats to connection: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+func PrintTopPlayers(db *sql.DB, conn net.Conn) error {
+	query := `
+        SELECT nickname, wins, all_games, 
+        CAST(wins AS FLOAT) / CAST(all_games AS FLOAT) AS winrate 
+        FROM players 
+        ORDER BY winrate DESC 
+        LIMIT 10
+    `
+	rows, err := db.Query(query)
+	if err != nil {
+		log.Printf("error retrieving top players: %v", err)
+		return err
+	}
+	defer rows.Close()
+
+	var builder strings.Builder
+	builder.WriteString("Top 10 Players:\n")
+
+	for rows.Next() {
+		var nickname string
+		var wins, numberOfGames int
+		var winRate float64
+		err := rows.Scan(&nickname, &wins, &numberOfGames, &winRate)
+		if err != nil {
+			log.Printf("error scanning top player: %v", err)
+			return err
+		}
+		builder.WriteString(fmt.Sprintf("%s: winrate: %.2f%%\n", nickname, winRate*100))
+	}
+
+	if err = rows.Err(); err != nil {
+		log.Printf("error iterating over top players: %v", err)
+		return err
+	}
+
+	_, err = conn.Write([]byte(builder.String()))
+	if err != nil {
+		log.Printf("error writing top players to connection: %v", err)
 		return err
 	}
 
