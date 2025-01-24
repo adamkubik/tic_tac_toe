@@ -81,6 +81,14 @@ func playGame(g *models.Game, s *models.Server) {
 			break
 		} else if isDraw(g.Board) {
 			g.OnGoing = false
+			if err := sendMessageToPlayer(g.CurrentPlayer, board); err != nil {
+				handleError(g, s, err)
+				return
+			}
+			if err := sendMessageToPlayer(g.WaitingPlayer, board); err != nil {
+				handleError(g, s, err)
+				return
+			}
 			break
 		}
 
