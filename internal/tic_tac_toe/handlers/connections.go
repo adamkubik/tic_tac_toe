@@ -32,7 +32,8 @@ func ListenAndPair(s *models.Server) error {
 	log.Printf("server is listening on %s", s.ListenAddr)
 
 	go AcceptNewConns(s)
-	go ProcessGameResults(s.ResultsChan)
+	// go ProcessGameResults(s.ResultsChan)
+	go MonitorResults(s)
 
 	HandleConns(s)
 
