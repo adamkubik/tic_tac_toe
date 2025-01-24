@@ -11,11 +11,14 @@ type Game struct {
 	Winner        *Player
 	Loser         *Player
 	Spectators    *[]Spectator
+	Error         error
 }
 
 type GameResult struct {
+	GameID  string
 	Player1 Player
 	Player2 Player
 	Winner  *Player
 	Loser   *Player
+	Error   error
 }

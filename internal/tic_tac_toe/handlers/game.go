@@ -198,10 +198,12 @@ func isDraw(board *[3][3]string) bool {
 func announceResult(g *models.Game, s *models.Server) {
 	resultMessage := ""
 	result := models.GameResult{
+		GameID:  g.ID,
 		Player1: g.Player1,
 		Player2: g.Player2,
 		Winner:  nil,
 		Loser:   nil,
+		Error:   nil,
 	}
 
 	if g.Winner != nil {
