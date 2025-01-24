@@ -17,6 +17,7 @@ func NewServer(address string, dB *sql.DB) *models.Server {
 		ResultsChan: make(chan models.GameResult),
 		Games:       make(map[string]*models.Game),
 		DB:          dB,
+		ActiveUsers: make(map[string]net.Conn),
 	}
 }
 
@@ -98,6 +99,12 @@ func handleLogin(s *models.Server, conn net.Conn, reader *bufio.Reader) {
 
 	log.Printf("received nickname %s from %s", nickname, conn.RemoteAddr())
 
+	if _, exists := s.ActiveUsers[nickname]; exists {
+		conn.Write([]byte("User already logged in. Disconnecting.\n"))
+		conn.Close()
+		return
+	}
+
 	succ, err := ProcessNickname(s.DB, conn, reader, nickname)
 	if err != nil {
 		conn.Write([]byte("Error processing nickname. Disconnecting.\n"))
@@ -109,6 +116,8 @@ func handleLogin(s *models.Server, conn net.Conn, reader *bufio.Reader) {
 		conn.Close()
 		return
 	}
+
+	s.ActiveUsers[nickname] = conn
 
 	for {
 		_, err = conn.Write([]byte("Enter 'play' to join a game, 'stats' to view your statistics or 'top10' to view top 10 players. "))
