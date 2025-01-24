@@ -33,7 +33,6 @@ func ListenAndPair(s *models.Server) error {
 	log.Printf("server is listening on %s", s.ListenAddr)
 
 	go AcceptNewConns(s)
-	go ProcessGameResults(s.ResultsChan)
 	go MonitorResults(s)
 
 	HandleConns(s)
@@ -56,7 +55,7 @@ func AcceptNewConns(s *models.Server) {
 }
 
 func handleNewConn(s *models.Server, conn net.Conn) {
-	_, err := conn.Write([]byte("Enter 'login' to authenticate or 'spectator' to watch: "))
+	_, err := conn.Write([]byte("Enter 'login' to authenticate or 'spectator' to watch or 'quit' to quit: "))
 	if err != nil {
 		LogAndClose(fmt.Sprintf("writing to connection error: %v", err), conn)
 		return
@@ -75,6 +74,8 @@ func handleNewConn(s *models.Server, conn net.Conn) {
 		handleLogin(s, conn, reader)
 	} else if choice == "spectator" {
 		handleSpectatorConnection(s, conn, reader)
+	} else if choice == "quit" {
+		conn.Close()
 	} else {
 		_, err = conn.Write([]byte("Invalid choice. Disconnecting.\n"))
 		if err != nil {
@@ -146,12 +147,15 @@ func handleLogin(s *models.Server, conn net.Conn, reader *bufio.Reader) {
 				conn.Close()
 				return
 			}
+		} else if choice == "quit" {
+			conn.Close()
+			delete(s.ActiveUsers, nickname)
 		} else {
 			_, err = conn.Write([]byte("Invalid choice. Please enter 'play', 'stats' or 'top10'.\n"))
 			if err != nil {
 				LogAndClose(fmt.Sprintf("writing to connection error: %v", err), conn)
-				return
 			}
+			return
 		}
 	}
 }
