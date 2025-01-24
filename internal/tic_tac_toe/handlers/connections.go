@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"strings"
+	"sync"
 	"tic_tac_toe/internal/tic_tac_toe/models"
 )
 
@@ -15,9 +16,13 @@ func NewServer(address string, dB *sql.DB) *models.Server {
 		ListenAddr:  address,
 		ConnsChan:   make(chan models.Player),
 		ResultsChan: make(chan models.GameResult),
-		Games:       make(map[string]*models.Game),
 		DB:          dB,
-		ActiveUsers: make(map[string]net.Conn),
+
+		ActiveGamesMu: sync.Mutex{},
+		Games:         make(map[string]*models.Game),
+
+		ActiveUsersMu: sync.Mutex{},
+		ActiveUsers:   make(map[string]net.Conn),
 	}
 }
 
@@ -91,9 +96,11 @@ func handleLogin(s *models.Server, conn net.Conn, reader *bufio.Reader) {
 
 	log.Printf("received nickname %s from %s", nickname, conn.RemoteAddr())
 
+	s.ActiveUsersMu.Lock()
 	if _, exists := s.ActiveUsers[nickname]; exists {
 		trySendMessage(conn, "User already logged in. Disconnecting.\n")
 		conn.Close()
+		s.ActiveUsersMu.Unlock()
 		return
 	}
 
@@ -101,25 +108,28 @@ func handleLogin(s *models.Server, conn net.Conn, reader *bufio.Reader) {
 	if err != nil {
 		trySendMessage(conn, "Error processing nickname. Disconnecting.\n")
 		conn.Close()
+		s.ActiveUsersMu.Lock()
 		return
 	}
 
 	if !succ {
 		conn.Close()
+		s.ActiveUsersMu.Lock()
 		return
 	}
 
 	s.ActiveUsers[nickname] = conn
+	s.ActiveUsersMu.Unlock()
 
 	for {
 		if err := trySendMessage(conn, "\nEnter: 'play' to join a game,\n       'stats' to view your statistics,\n       'top10' to view top 10 players or\n       'quit' to quit: "); err != nil {
-			delete(s.ActiveUsers, nickname)
+			handleLogout(s, nickname)
 			return
 		}
 
 		choice, err := tryReadMessage(conn, reader)
 		if err != nil {
-			delete(s.ActiveUsers, nickname)
+			handleLogout(s, nickname)
 			return
 		}
 		choice = strings.TrimSpace(strings.ToLower(choice))
@@ -134,17 +144,17 @@ func handleLogin(s *models.Server, conn net.Conn, reader *bufio.Reader) {
 			if err != nil {
 				conn.Write([]byte("kasfnskjnvks"))
 				conn.Close()
-				delete(s.ActiveUsers, nickname)
+				handleLogout(s, nickname)
 				return
 			}
 		} else if choice == "quit" {
 			conn.Close()
-			delete(s.ActiveUsers, nickname)
+			handleLogout(s, nickname)
 			break
 		} else {
 			if err := trySendMessage(conn, "Invalid choice. Please enter 'play', 'stats' 'top10' or 'quit': \n"); err != nil {
 				conn.Close()
-				delete(s.ActiveUsers, nickname)
+				handleLogout(s, nickname)
 				return
 			}
 		}
@@ -156,14 +166,14 @@ func handleStatsRequest(s *models.Server, conn net.Conn, username string) {
 	if err != nil {
 		trySendMessage(conn, "Error retrieving statistics. Disconnecting.\n")
 		conn.Close()
-		delete(s.ActiveUsers, username)
+		handleLogout(s, username)
 		return
 	}
 }
 
 func handlePlayerConnection(s *models.Server, conn net.Conn, nickname string) {
 	if err := trySendMessage(conn, "Waiting for an oponent...\n"); err != nil {
-		delete(s.ActiveUsers, nickname)
+		handleLogout(s, nickname)
 		return
 	}
 
@@ -176,22 +186,35 @@ func handlePlayerConnection(s *models.Server, conn net.Conn, nickname string) {
 	s.ConnsChan <- player
 }
 
+func handleLogout(s *models.Server, nickname string) {
+	s.ActiveUsersMu.Lock()
+	defer s.ActiveUsersMu.Unlock()
+
+	delete(s.ActiveUsers, nickname)
+}
+
 func handleSpectatorConnection(s *models.Server, conn net.Conn, reader *bufio.Reader) {
+	s.ActiveGamesMu.Lock()
 	if len(s.Games) == 0 {
 		trySendMessage(conn, "No games are currently active. Disconnecting.\n")
 		conn.Close()
+		s.ActiveGamesMu.Unlock()
 		return
 	}
+	s.ActiveGamesMu.Unlock()
 
 	if err := trySendMessage(conn, "Available games:\n"); err != nil {
 		return
 	}
 
+	s.ActiveGamesMu.Lock()
 	for id, game := range s.Games {
 		if err := trySendMessage(conn, fmt.Sprintf("Game ID: %s (Players: %s vs %s)\n", id, game.Player1.NickName, game.Player2.NickName)); err != nil {
+			s.ActiveGamesMu.Unlock()
 			return
 		}
 	}
+	s.ActiveGamesMu.Unlock()
 
 	if err := trySendMessage(conn, "Enter the ID of the game you want to spectate: "); err != nil {
 		return
@@ -203,18 +226,26 @@ func handleSpectatorConnection(s *models.Server, conn net.Conn, reader *bufio.Re
 	}
 	gameID = strings.TrimSpace(gameID)
 
+	s.ActiveGamesMu.Lock()
 	game, ok := s.Games[gameID]
 	if !ok {
 		trySendMessage(conn, "Invalid game ID. Disconnecting.\n")
 		conn.Close()
+		s.ActiveGamesMu.Unlock()
 		return
 	}
 
-	if err := trySendMessage(conn, "You are now spectating game %s.\n"); err != nil {
+	spectator := models.Spectator{Conn: conn}
+	game.SpectatorsMu.Lock()
+	(*game.Spectators)[spectator] = struct{}{}
+	game.SpectatorsMu.Unlock()
+
+	if err := trySendMessage(conn, fmt.Sprintf("You are now spectating game %s.\n", gameID)); err != nil {
 		return
 	}
-	spectator := models.Spectator{Conn: conn}
-	(*game.Spectators)[spectator] = struct{}{}
+
+	s.ActiveGamesMu.Unlock()
+
 }
 
 func HandleConns(s *models.Server) {
