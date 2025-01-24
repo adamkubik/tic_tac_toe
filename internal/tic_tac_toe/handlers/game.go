@@ -69,27 +69,14 @@ func playGame(g *models.Game, s *models.Server) {
 			g.Winner = g.CurrentPlayer
 			g.Loser = g.WaitingPlayer
 			g.OnGoing = false
-			if err := sendMessageToPlayer(g.CurrentPlayer, board); err != nil {
-				handleError(g, s, err)
+			if err := sendFinalBoard(g, board, s); err != nil {
 				return
 			}
-			if err := sendMessageToPlayer(g.WaitingPlayer, board); err != nil {
-				handleError(g, s, err)
-				return
-			}
-			sendToSpectators(g, board)
 			break
 		} else if isDraw(g.Board) {
-			g.OnGoing = false
-			if err := sendMessageToPlayer(g.CurrentPlayer, board); err != nil {
-				handleError(g, s, err)
+			if err := sendFinalBoard(g, board, s); err != nil {
 				return
 			}
-			if err := sendMessageToPlayer(g.WaitingPlayer, board); err != nil {
-				handleError(g, s, err)
-				return
-			}
-			sendToSpectators(g, board)
 			break
 		}
 
@@ -101,6 +88,19 @@ func playGame(g *models.Game, s *models.Server) {
 	}
 
 	announceResult(g, s)
+}
+
+func sendFinalBoard(g *models.Game, board string, s *models.Server) error {
+	if err := sendMessageToPlayer(g.CurrentPlayer, board); err != nil {
+		handleError(g, s, err)
+		return err
+	}
+	if err := sendMessageToPlayer(g.WaitingPlayer, board); err != nil {
+		handleError(g, s, err)
+		return err
+	}
+	sendToSpectators(g, board)
+	return nil
 }
 
 func tryGetMove(g *models.Game) error {
