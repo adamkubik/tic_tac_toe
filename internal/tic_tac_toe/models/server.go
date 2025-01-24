@@ -1,6 +1,7 @@
 package models
 
 import (
+	"database/sql"
 	"net"
 )
 
@@ -10,4 +11,5 @@ type Server struct {
 	ConnsChan   chan Player
 	ResultsChan chan GameResult
 	Games       map[string]*Game
+	DB          *sql.DB
 }

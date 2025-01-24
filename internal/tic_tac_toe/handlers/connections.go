@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bufio"
+	"database/sql"
 	"fmt"
 	"log"
 	"net"
@@ -9,12 +10,13 @@ import (
 	"tic_tac_toe/internal/tic_tac_toe/models"
 )
 
-func NewServer(address string) *models.Server {
+func NewServer(address string, dB *sql.DB) *models.Server {
 	return &models.Server{
 		ListenAddr:  address,
 		ConnsChan:   make(chan models.Player),
 		ResultsChan: make(chan models.GameResult),
 		Games:       make(map[string]*models.Game),
+		DB:          dB,
 	}
 }
 
@@ -84,6 +86,19 @@ func handlePlayerConnection(s *models.Server, conn net.Conn, reader *bufio.Reade
 	username = strings.TrimSpace(username)
 
 	log.Printf("received username %s from %s", username, conn.RemoteAddr())
+
+	succ, err := ProcessNickname(s.DB, conn, reader, username)
+	if err != nil {
+		conn.Write([]byte("Error processing username. Disconnecting.\n"))
+		conn.Close()
+		return
+	}
+
+	if !succ {
+		conn.Close()
+		return
+	}
+
 	conn.Write([]byte("Waiting for an oponent...\n"))
 
 	player := models.Player{
