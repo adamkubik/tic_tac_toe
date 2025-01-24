@@ -3,6 +3,7 @@ package models
 import (
 	"database/sql"
 	"net"
+	"sync"
 )
 
 type Server struct {
@@ -10,7 +11,11 @@ type Server struct {
 	Listener    net.Listener
 	ConnsChan   chan Player
 	ResultsChan chan GameResult
-	Games       map[string]*Game
 	DB          *sql.DB
-	ActiveUsers map[string]net.Conn
+
+	ActiveGamesMu sync.Mutex
+	Games         map[string]*Game
+
+	ActiveUsersMu sync.Mutex
+	ActiveUsers   map[string]net.Conn
 }
