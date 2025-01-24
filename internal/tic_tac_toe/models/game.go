@@ -10,7 +10,7 @@ type Game struct {
 	WaitingPlayer *Player
 	Winner        *Player
 	Loser         *Player
-	Spectators    *[]Spectator
+	Spectators    *map[Spectator]struct{}
 	Error         error
 }
 

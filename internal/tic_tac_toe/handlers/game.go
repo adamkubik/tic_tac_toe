@@ -15,7 +15,6 @@ func StartGame(p1 models.Player, p2 models.Player, s *models.Server) {
 		{" ", " ", " "},
 	}
 
-	spectators := make([]models.Spectator, 0, 10)
 	gameId := uuid.New().String()
 
 	g := models.Game{
@@ -28,7 +27,7 @@ func StartGame(p1 models.Player, p2 models.Player, s *models.Server) {
 		Board:         &board,
 		Winner:        nil,
 		Loser:         nil,
-		Spectators:    &spectators,
+		Spectators:    &map[models.Spectator]struct{}{},
 	}
 
 	s.Games[gameId] = &g
@@ -113,7 +112,7 @@ func getBoard(board *[3][3]string) string {
 
 func sendBoardToSpectators(game *models.Game, board string) {
 	if game.Spectators != nil {
-		for _, spectator := range *game.Spectators {
+		for spectator := range *game.Spectators {
 			spectator.Conn.Write([]byte(board))
 			if game.OnGoing {
 				spectator.Conn.Write([]byte(fmt.Sprintf("%s's turn:\n", game.CurrentPlayer.NickName)))
@@ -122,20 +121,15 @@ func sendBoardToSpectators(game *models.Game, board string) {
 	}
 }
 
-func removeSpectator(spectators *[]models.Spectator, spectator *models.Spectator) {
+func removeSpectator(spectators *map[models.Spectator]struct{}, spectator *models.Spectator) {
 	if spectators != nil {
-		for i, s := range *spectators {
-			if s.Conn == spectator.Conn {
-				*spectators = append((*spectators)[:i], (*spectators)[i+1:]...)
-				break
-			}
-		}
+		delete(*spectators, *spectator)
 	}
 }
 
-func disconnectSpectators(spectators *[]models.Spectator) {
+func disconnectSpectators(spectators *map[models.Spectator]struct{}) {
 	if spectators != nil {
-		for _, s := range *spectators {
+		for s := range *spectators {
 			s.Conn.Close()
 		}
 	}
@@ -217,7 +211,7 @@ func announceResult(g *models.Game, s *models.Server) {
 	sendMessage(&g.Player1, resultMessage)
 	sendMessage(&g.Player2, resultMessage)
 
-	for _, spectator := range *g.Spectators {
+	for spectator := range *g.Spectators {
 		spectator.Conn.Write([]byte(resultMessage))
 	}
 

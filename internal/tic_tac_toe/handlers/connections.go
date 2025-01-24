@@ -81,6 +81,7 @@ func handleNewConn(s *models.Server, conn net.Conn) {
 		if err != nil {
 			LogAndClose(fmt.Sprintf("writing to connection error: %v", err), conn)
 		}
+		conn.Close()
 	}
 }
 
@@ -121,7 +122,7 @@ func handleLogin(s *models.Server, conn net.Conn, reader *bufio.Reader) {
 	s.ActiveUsers[nickname] = conn
 
 	for {
-		_, err = conn.Write([]byte("Enter 'play' to join a game, 'stats' to view your statistics or 'top10' to view top 10 players. "))
+		_, err = conn.Write([]byte("Enter 'play' to join a game, 'stats' to view your statistics or 'top10' to view top 10 players or 'quit' to quit: "))
 		if err != nil {
 			LogAndClose(fmt.Sprintf("writing to connection error: %v", err), conn)
 			delete(s.ActiveUsers, nickname)
@@ -153,6 +154,7 @@ func handleLogin(s *models.Server, conn net.Conn, reader *bufio.Reader) {
 		} else if choice == "quit" {
 			conn.Close()
 			delete(s.ActiveUsers, nickname)
+			break
 		} else {
 			_, err = conn.Write([]byte("Invalid choice. Please enter 'play', 'stats' or 'top10'.\n"))
 			if err != nil {
@@ -197,6 +199,7 @@ func handleSpectatorConnection(s *models.Server, conn net.Conn, reader *bufio.Re
 		if err != nil {
 			LogAndClose(fmt.Sprintf("writing to connection error: %v", err), conn)
 		}
+		conn.Close()
 		return
 	}
 
@@ -233,10 +236,12 @@ func handleSpectatorConnection(s *models.Server, conn net.Conn, reader *bufio.Re
 		if err != nil {
 			LogAndClose(fmt.Sprintf("writing to connection error: %v", err), conn)
 		}
+		conn.Close()
 		return
 	}
 
-	*game.Spectators = append(*game.Spectators, models.Spectator{Conn: conn})
+	spectator := models.Spectator{Conn: conn}
+	(*game.Spectators)[spectator] = struct{}{}
 	_, err = conn.Write([]byte(fmt.Sprintf("You are now spectating game %s.\n", gameID)))
 	if err != nil {
 		LogAndClose(fmt.Sprintf("writing to connection error: %v", err), conn)
