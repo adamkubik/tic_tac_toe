@@ -31,11 +31,11 @@ func StartGame(p1 models.Player, p2 models.Player, s *models.Server) {
 	}
 
 	s.Games[gameId] = &g
-	if err := sendMessage(g.CurrentPlayer, "The game is starting... you're player 'X'\n"); err != nil {
+	if err := sendMessageToPlayer(g.CurrentPlayer, "The game is starting... you're player 'X'\n"); err != nil {
 		handleError(&g, s, err)
 		return
 	}
-	if err := sendMessage(g.CurrentPlayer, "The game is starting... you're player '0'\n"); err != nil {
+	if err := sendMessageToPlayer(g.CurrentPlayer, "The game is starting... you're player '0'\n"); err != nil {
 		handleError(&g, s, err)
 		return
 	}
@@ -46,11 +46,11 @@ func StartGame(p1 models.Player, p2 models.Player, s *models.Server) {
 func playGame(g *models.Game, s *models.Server) {
 	for g.OnGoing {
 		board := getBoard(g.Board)
-		if err := sendMessage(g.CurrentPlayer, board); err != nil {
+		if err := sendMessageToPlayer(g.CurrentPlayer, board); err != nil {
 			handleError(g, s, err)
 			return
 		}
-		if err := sendMessage(g.WaitingPlayer, "Waiting for your oponent's turn...\n"); err != nil {
+		if err := sendMessageToPlayer(g.WaitingPlayer, "Waiting for your oponent's turn...\n"); err != nil {
 			handleError(g, s, err)
 			return
 		}
@@ -66,11 +66,11 @@ func playGame(g *models.Game, s *models.Server) {
 			g.Winner = g.CurrentPlayer
 			g.Loser = g.WaitingPlayer
 			g.OnGoing = false
-			if err := sendMessage(g.CurrentPlayer, board); err != nil {
+			if err := sendMessageToPlayer(g.CurrentPlayer, board); err != nil {
 				handleError(g, s, err)
 				return
 			}
-			if err := sendMessage(g.WaitingPlayer, board); err != nil {
+			if err := sendMessageToPlayer(g.WaitingPlayer, board); err != nil {
 				handleError(g, s, err)
 				return
 			}
@@ -81,7 +81,7 @@ func playGame(g *models.Game, s *models.Server) {
 			break
 		}
 
-		if err := sendMessage(g.CurrentPlayer, board); err != nil {
+		if err := sendMessageToPlayer(g.CurrentPlayer, board); err != nil {
 			handleError(g, s, err)
 			return
 		}
@@ -101,7 +101,7 @@ func tryGetMove(g *models.Game) error {
 
 		row, col, err = validateMove(move, g.Board)
 		if err != nil {
-			if err := sendMessage(g.CurrentPlayer, fmt.Sprintf("Invalid move: %s. Try again.\n", err.Error())); err != nil {
+			if err := sendMessageToPlayer(g.CurrentPlayer, fmt.Sprintf("Invalid move: %s. Try again.\n", err.Error())); err != nil {
 				return err
 			}
 			continue
@@ -184,7 +184,7 @@ func disconnectSpectators(spectators *map[models.Spectator]struct{}) {
 }
 
 func requestMove(player *models.Player) (string, error) {
-	if err := sendMessage(player, "Your move (format: A1, B3, etc.): "); err != nil {
+	if err := sendMessageToPlayer(player, "Your move (format: A1, B3, etc.): "); err != nil {
 		return "", err
 	}
 
@@ -292,11 +292,11 @@ func announceResult(g *models.Game, s *models.Server) {
 		resultMessage = "Game Over. It's a draw!\n"
 	}
 
-	if err := sendMessage(&g.Player1, resultMessage); err != nil {
+	if err := sendMessageToPlayer(&g.Player1, resultMessage); err != nil {
 		handleError(g, s, err)
 		return
 	}
-	if err := sendMessage(&g.Player2, resultMessage); err != nil {
+	if err := sendMessageToPlayer(&g.Player2, resultMessage); err != nil {
 		handleError(g, s, err)
 		return
 	}
@@ -314,7 +314,7 @@ func announceResult(g *models.Game, s *models.Server) {
 	s.ResultsChan <- result
 }
 
-func sendMessage(player *models.Player, message string) error {
+func sendMessageToPlayer(player *models.Player, message string) error {
 	_, err := player.Conn.Write([]byte(message))
 	if err != nil {
 		return fmt.Errorf("failed to send message to %s: %w", player.NickName, err)
@@ -327,8 +327,8 @@ func handleError(g *models.Game, s *models.Server, err error) {
 
 	errorMessage := fmt.Sprintf("Game Over due to an error: %s\n", err.Error())
 
-	sendMessage(g.CurrentPlayer, errorMessage)
-	sendMessage(g.WaitingPlayer, errorMessage)
+	sendMessageToPlayer(g.CurrentPlayer, errorMessage)
+	sendMessageToPlayer(g.WaitingPlayer, errorMessage)
 	for spectator := range *g.Spectators {
 		spectator.Conn.Write([]byte(errorMessage))
 	}
