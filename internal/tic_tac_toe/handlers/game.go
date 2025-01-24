@@ -3,7 +3,6 @@ package handlers
 import (
 	"fmt"
 	"strings"
-	"sync"
 	"tic_tac_toe/internal/tic_tac_toe/models"
 
 	"github.com/google/uuid"
@@ -28,9 +27,7 @@ func StartGame(p1 models.Player, p2 models.Player, s *models.Server) {
 		Board:         &board,
 		Winner:        nil,
 		Loser:         nil,
-
-		SpectatorsMu: sync.Mutex{},
-		Spectators:   &map[models.Spectator]struct{}{},
+		Spectators:    &map[models.Spectator]struct{}{},
 	}
 
 	s.ActiveGamesMu.Lock()
@@ -154,9 +151,6 @@ func getBoard(board *[3][3]string) string {
 }
 
 func sendToSpectators(game *models.Game, msg string) {
-	game.SpectatorsMu.Lock()
-	defer game.SpectatorsMu.Unlock()
-
 	if game.Spectators == nil {
 		return
 	}
@@ -180,18 +174,12 @@ func sendToSpectators(game *models.Game, msg string) {
 
 func removeSpectator(game *models.Game, spectator *models.Spectator) {
 	if game.Spectators != nil {
-		game.SpectatorsMu.Lock()
-		defer game.SpectatorsMu.Unlock()
-
 		delete(*game.Spectators, *spectator)
 	}
 }
 
 func disconnectSpectators(game *models.Game) {
 	if game.Spectators != nil {
-		game.SpectatorsMu.Lock()
-		defer game.SpectatorsMu.Unlock()
-
 		for s := range *game.Spectators {
 			s.Conn.Close()
 		}

@@ -236,9 +236,7 @@ func handleSpectatorConnection(s *models.Server, conn net.Conn, reader *bufio.Re
 	}
 
 	spectator := models.Spectator{Conn: conn}
-	game.SpectatorsMu.Lock()
 	(*game.Spectators)[spectator] = struct{}{}
-	game.SpectatorsMu.Unlock()
 
 	if err := trySendMessage(conn, fmt.Sprintf("You are now spectating game %s.\n", gameID)); err != nil {
 		return
