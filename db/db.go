@@ -13,7 +13,7 @@ import (
 func LoadConfig() *models.Config {
 	viper.SetConfigName("cred_db")
 	viper.SetConfigType("yaml")
-	viper.AddConfigPath("../../config")
+	viper.AddConfigPath("../../db")
 
 	if err := viper.ReadInConfig(); err != nil {
 		log.Fatalf("Error reading config file, %s", err)
