@@ -12,4 +12,5 @@ type Server struct {
 	ResultsChan chan GameResult
 	Games       map[string]*Game
 	DB          *sql.DB
+	ActiveUsers map[string]net.Conn
 }

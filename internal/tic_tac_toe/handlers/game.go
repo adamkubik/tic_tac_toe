@@ -226,6 +226,8 @@ func announceResult(g *models.Game, s *models.Server) {
 	g.Player1.Conn.Close()
 	g.Player2.Conn.Close()
 	delete(s.Games, g.ID)
+	delete(s.ActiveUsers, g.Player1.NickName)
+	delete(s.ActiveUsers, g.Player2.NickName)
 
 	s.ResultsChan <- result
 }
