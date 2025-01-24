@@ -3,6 +3,7 @@ package handlers
 import (
 	"bufio"
 	"database/sql"
+	"fmt"
 	"log"
 	"net"
 	"strings"
@@ -123,6 +124,27 @@ func UpdatePlayerStats(db *sql.DB, result models.GameResult) error {
 			log.Printf("error updating both players due to draw: %v", err)
 			return err
 		}
+	}
+
+	return nil
+}
+
+func PrintPlayerStats(dB *sql.DB, nickname string, conn net.Conn, reader *bufio.Reader) error {
+	var numberOfGames, wins, losses, draws int
+	query := "SELECT all_games, wins, losses, draws FROM players WHERE nickname=$1"
+	err := dB.QueryRow(query, nickname).Scan(&numberOfGames, &wins, &losses, &draws)
+	if err != nil {
+		log.Printf("error retrieving player stats: %v", err)
+		return err
+	}
+
+	winRate := float64(wins) / float64(numberOfGames) * 100
+
+	stats := fmt.Sprintf("%s:\nall_games: %d\nwins: %d\nlosses: %d\ndraws: %d\nwinrate: %.2f%%\n", nickname, numberOfGames, wins, losses, draws, winRate)
+	_, err = conn.Write([]byte(stats))
+	if err != nil {
+		log.Printf("error writing player stats to connection: %v", err)
+		return err
 	}
 
 	return nil
