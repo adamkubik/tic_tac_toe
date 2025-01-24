@@ -111,7 +111,7 @@ func handleLogin(s *models.Server, conn net.Conn, reader *bufio.Reader) {
 	}
 
 	for {
-		_, err = conn.Write([]byte("Enter 'play' to join a game or 'stats' to view your statistics: "))
+		_, err = conn.Write([]byte("Enter 'play' to join a game, 'stats' to view your statistics or 'top10' to view top 10 players. "))
 		if err != nil {
 			LogAndClose(fmt.Sprintf("writing to connection error: %v", err), conn)
 			return
@@ -129,9 +129,16 @@ func handleLogin(s *models.Server, conn net.Conn, reader *bufio.Reader) {
 			handlePlayerConnection(s, conn, nickname)
 			break
 		} else if choice == "stats" {
-			handleStatsRequest(s, conn, reader, nickname)
+			handleStatsRequest(s, conn, nickname)
+		} else if choice == "top10" {
+			err := PrintTopPlayers(s.DB, conn)
+			if err != nil {
+				conn.Write([]byte("kasfnskjnvks"))
+				conn.Close()
+				return
+			}
 		} else {
-			_, err = conn.Write([]byte("Invalid choice. Please enter 'play' or 'stats'.\n"))
+			_, err = conn.Write([]byte("Invalid choice. Please enter 'play', 'stats' or 'top10'.\n"))
 			if err != nil {
 				LogAndClose(fmt.Sprintf("writing to connection error: %v", err), conn)
 				return
@@ -140,8 +147,8 @@ func handleLogin(s *models.Server, conn net.Conn, reader *bufio.Reader) {
 	}
 }
 
-func handleStatsRequest(s *models.Server, conn net.Conn, reader *bufio.Reader, username string) {
-	err := PrintPlayerStats(s.DB, username, conn, reader)
+func handleStatsRequest(s *models.Server, conn net.Conn, username string) {
+	err := PrintPlayerStats(s.DB, username, conn)
 	if err != nil {
 		conn.Write([]byte("Error retrieving statistics. Disconnecting.\n"))
 		conn.Close()
