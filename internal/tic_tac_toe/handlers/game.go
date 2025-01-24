@@ -56,27 +56,10 @@ func playGame(g *models.Game, s *models.Server) {
 		}
 		sendToSpectators(g, board)
 
-		var row, col int
-		for {
-			move, err := requestMove(g.CurrentPlayer)
-			if err != nil {
-				handleError(g, s, err)
-				return
-			}
-
-			row, col, err = validateMove(move, g.Board)
-			if err != nil {
-				if err := sendMessage(g.CurrentPlayer, fmt.Sprintf("Invalid move: %s. Try again.\n", err.Error())); err != nil {
-					handleError(g, s, err)
-					return
-				}
-				continue
-			}
-
-			break
+		if err := tryGetMove(g); err != nil {
+			handleError(g, s, err)
+			return
 		}
-
-		g.Board[row][col] = g.CurrentPlayer.Symbol
 
 		board = getBoard(g.Board)
 		if checkWin(g.Board, g.CurrentPlayer.Symbol) {
@@ -106,6 +89,32 @@ func playGame(g *models.Game, s *models.Server) {
 	}
 
 	announceResult(g, s)
+}
+
+func tryGetMove(g *models.Game) error {
+	var row, col int
+	for {
+		move, err := requestMove(g.CurrentPlayer)
+		if err != nil {
+			return err
+		}
+
+		row, col, err = validateMove(move, g.Board)
+		if err != nil {
+			if err := sendMessage(g.CurrentPlayer, fmt.Sprintf("Invalid move: %s. Try again.\n", err.Error())); err != nil {
+				return err
+			}
+			continue
+		}
+		updateBoard(g, row, col)
+		break
+	}
+
+	return nil
+}
+
+func updateBoard(g *models.Game, row int, col int) {
+	g.Board[row][col] = g.CurrentPlayer.Symbol
 }
 
 func getBoard(board *[3][3]string) string {
@@ -139,20 +148,22 @@ func getBoard(board *[3][3]string) string {
 }
 
 func sendToSpectators(game *models.Game, msg string) {
-	if game.Spectators != nil {
-		for spectator := range *game.Spectators {
-			_, err := spectator.Conn.Write([]byte(msg))
+	if game.Spectators == nil {
+		return
+	}
+
+	for spectator := range *game.Spectators {
+		_, err := spectator.Conn.Write([]byte(msg))
+		if err != nil {
+			spectator.Conn.Close()
+			removeSpectator(game.Spectators, &spectator)
+			continue
+		}
+		if game.OnGoing {
+			_, err = spectator.Conn.Write([]byte(fmt.Sprintf("%s's turn:\n", game.CurrentPlayer.NickName)))
 			if err != nil {
 				spectator.Conn.Close()
 				removeSpectator(game.Spectators, &spectator)
-				continue
-			}
-			if game.OnGoing {
-				_, err = spectator.Conn.Write([]byte(fmt.Sprintf("%s's turn:\n", game.CurrentPlayer.NickName)))
-				if err != nil {
-					spectator.Conn.Close()
-					removeSpectator(game.Spectators, &spectator)
-				}
 			}
 		}
 	}
