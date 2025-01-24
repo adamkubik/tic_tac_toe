@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"strings"
+	"tic_tac_toe/internal/tic_tac_toe/models"
 )
 
 func ProcessNickname(db *sql.DB, conn net.Conn, reader *bufio.Reader, nickname string) (bool, error) {
@@ -79,4 +80,50 @@ func VerifyPassword(db *sql.DB, nickname, password string) (bool, error) {
 		return false, err
 	}
 	return exists, nil
+}
+
+func MonitorResults(s *models.Server) {
+	for {
+		result := <-s.ResultsChan
+		if result.Error != nil {
+			log.Printf("game %s will not update the database: %v", result.GameID, result.Error)
+			continue
+		}
+
+		err := UpdatePlayerStats(s.DB, result)
+		if err != nil {
+			log.Printf("error updating player stats in database: %v", err)
+		}
+	}
+}
+
+func UpdatePlayerStats(db *sql.DB, result models.GameResult) error {
+	if result.Winner != nil {
+		query := "UPDATE players SET wins = wins + 1, all_games = all_games + 1 WHERE nickname = $1"
+		_, err := db.Exec(query, result.Winner.NickName)
+		if err != nil {
+			log.Printf("error updating winner: %v", err)
+			return err
+		}
+	}
+
+	if result.Loser != nil {
+		query := "UPDATE players SET losses = losses + 1, all_games = all_games + 1 WHERE nickname = $1"
+		_, err := db.Exec(query, result.Loser.NickName)
+		if err != nil {
+			log.Printf("error updating loser: %v", err)
+			return err
+		}
+	}
+
+	if result.Winner == nil {
+		query := "UPDATE players SET draws = draws + 1, all_games = all_games + 1 WHERE nickname = $1 OR nickname = $2"
+		_, err := db.Exec(query, result.Player1.NickName, result.Player2.NickName)
+		if err != nil {
+			log.Printf("error updating both players due to draw: %v", err)
+			return err
+		}
+	}
+
+	return nil
 }
