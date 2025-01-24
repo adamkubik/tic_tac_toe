@@ -33,7 +33,9 @@ func ListenAndPair(s *models.Server) error {
 
 	go AcceptNewConns(s)
 	go HandleConns(s)
-	go ProcessGameResults(s.ResultsChan)
+	// go ProcessGameResults(s.ResultsChan)
+
+	go MonitorResults(s)
 
 	return nil
 }
