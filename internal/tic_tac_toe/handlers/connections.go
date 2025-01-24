@@ -124,6 +124,7 @@ func handleLogin(s *models.Server, conn net.Conn, reader *bufio.Reader) {
 		_, err = conn.Write([]byte("Enter 'play' to join a game, 'stats' to view your statistics or 'top10' to view top 10 players. "))
 		if err != nil {
 			LogAndClose(fmt.Sprintf("writing to connection error: %v", err), conn)
+			delete(s.ActiveUsers, nickname)
 			return
 		}
 
@@ -131,6 +132,7 @@ func handleLogin(s *models.Server, conn net.Conn, reader *bufio.Reader) {
 		if err != nil {
 			log.Printf("Error reading choice: %v", err)
 			conn.Close()
+			delete(s.ActiveUsers, nickname)
 			return
 		}
 		choice = strings.TrimSpace(strings.ToLower(choice))
@@ -145,6 +147,7 @@ func handleLogin(s *models.Server, conn net.Conn, reader *bufio.Reader) {
 			if err != nil {
 				conn.Write([]byte("kasfnskjnvks"))
 				conn.Close()
+				delete(s.ActiveUsers, nickname)
 				return
 			}
 		} else if choice == "quit" {
@@ -155,6 +158,7 @@ func handleLogin(s *models.Server, conn net.Conn, reader *bufio.Reader) {
 			if err != nil {
 				LogAndClose(fmt.Sprintf("writing to connection error: %v", err), conn)
 			}
+			delete(s.ActiveUsers, nickname)
 			return
 		}
 	}
@@ -165,6 +169,7 @@ func handleStatsRequest(s *models.Server, conn net.Conn, username string) {
 	if err != nil {
 		conn.Write([]byte("Error retrieving statistics. Disconnecting.\n"))
 		conn.Close()
+		delete(s.ActiveUsers, username)
 		return
 	}
 }
@@ -173,6 +178,7 @@ func handlePlayerConnection(s *models.Server, conn net.Conn, nickname string) {
 	_, err := conn.Write([]byte("Waiting for an oponent...\n"))
 	if err != nil {
 		LogAndClose(fmt.Sprintf("writing to connection error: %v", err), conn)
+		delete(s.ActiveUsers, nickname)
 		return
 	}
 
