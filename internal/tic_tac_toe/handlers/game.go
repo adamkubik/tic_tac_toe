@@ -89,6 +89,7 @@ func playGame(g *models.Game, s *models.Server) {
 				handleError(g, s, err)
 				return
 			}
+			sendToSpectators(g, board)
 			break
 		}
 
