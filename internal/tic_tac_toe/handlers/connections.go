@@ -149,7 +149,7 @@ func handleStatsRequest(s *models.Server, conn net.Conn, reader *bufio.Reader, u
 	}
 }
 
-func handlePlayerConnection(s *models.Server, conn net.Conn, reader *bufio.Reader, nickname string) {
+func handlePlayerConnection(s *models.Server, conn net.Conn, nickname string) {
 	_, err := conn.Write([]byte("Waiting for an oponent...\n"))
 	if err != nil {
 		LogAndClose(fmt.Sprintf("writing to connection error: %v", err), conn)
