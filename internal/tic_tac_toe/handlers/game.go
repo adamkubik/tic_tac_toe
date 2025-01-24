@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"tic_tac_toe/internal/tic_tac_toe/models"
 
 	"github.com/google/uuid"
@@ -27,10 +28,15 @@ func StartGame(p1 models.Player, p2 models.Player, s *models.Server) {
 		Board:         &board,
 		Winner:        nil,
 		Loser:         nil,
-		Spectators:    &map[models.Spectator]struct{}{},
+
+		SpectatorsMu: sync.Mutex{},
+		Spectators:   &map[models.Spectator]struct{}{},
 	}
 
+	s.ActiveGamesMu.Lock()
 	s.Games[gameId] = &g
+	s.ActiveGamesMu.Unlock()
+
 	if err := sendMessageToPlayer(g.CurrentPlayer, "The game is starting... you're player 'X'\n"); err != nil {
 		handleError(&g, s, err)
 		return
@@ -148,6 +154,9 @@ func getBoard(board *[3][3]string) string {
 }
 
 func sendToSpectators(game *models.Game, msg string) {
+	game.SpectatorsMu.Lock()
+	defer game.SpectatorsMu.Unlock()
+
 	if game.Spectators == nil {
 		return
 	}
@@ -156,28 +165,34 @@ func sendToSpectators(game *models.Game, msg string) {
 		_, err := spectator.Conn.Write([]byte(msg))
 		if err != nil {
 			spectator.Conn.Close()
-			removeSpectator(game.Spectators, &spectator)
+			removeSpectator(game, &spectator)
 			continue
 		}
 		if game.OnGoing {
 			_, err = spectator.Conn.Write([]byte(fmt.Sprintf("%s's turn:\n", game.CurrentPlayer.NickName)))
 			if err != nil {
 				spectator.Conn.Close()
-				removeSpectator(game.Spectators, &spectator)
+				removeSpectator(game, &spectator)
 			}
 		}
 	}
 }
 
-func removeSpectator(spectators *map[models.Spectator]struct{}, spectator *models.Spectator) {
-	if spectators != nil {
-		delete(*spectators, *spectator)
+func removeSpectator(game *models.Game, spectator *models.Spectator) {
+	if game.Spectators != nil {
+		game.SpectatorsMu.Lock()
+		defer game.SpectatorsMu.Unlock()
+
+		delete(*game.Spectators, *spectator)
 	}
 }
 
-func disconnectSpectators(spectators *map[models.Spectator]struct{}) {
-	if spectators != nil {
-		for s := range *spectators {
+func disconnectSpectators(game *models.Game) {
+	if game.Spectators != nil {
+		game.SpectatorsMu.Lock()
+		defer game.SpectatorsMu.Unlock()
+
+		for s := range *game.Spectators {
 			s.Conn.Close()
 		}
 	}
@@ -303,13 +318,18 @@ func announceResult(g *models.Game, s *models.Server) {
 
 	sendToSpectators(g, resultMessage)
 
-	disconnectSpectators(g.Spectators)
+	disconnectSpectators(g)
 	g.Player1.Conn.Close()
 	g.Player2.Conn.Close()
 
+	s.ActiveGamesMu.Lock()
 	delete(s.Games, g.ID)
+	s.ActiveGamesMu.Unlock()
+
+	s.ActiveUsersMu.Lock()
 	delete(s.ActiveUsers, g.Player1.NickName)
 	delete(s.ActiveUsers, g.Player2.NickName)
+	s.ActiveUsersMu.Unlock()
 
 	s.ResultsChan <- result
 }
@@ -333,13 +353,18 @@ func handleError(g *models.Game, s *models.Server, err error) {
 		spectator.Conn.Write([]byte(errorMessage))
 	}
 
-	disconnectSpectators(g.Spectators)
+	disconnectSpectators(g)
 	g.Player1.Conn.Close()
 	g.Player2.Conn.Close()
 
+	s.ActiveGamesMu.Lock()
 	delete(s.Games, g.ID)
+	s.ActiveGamesMu.Unlock()
+
+	s.ActiveUsersMu.Lock()
 	delete(s.ActiveUsers, g.Player1.NickName)
 	delete(s.ActiveUsers, g.Player2.NickName)
+	s.ActiveUsersMu.Unlock()
 
 	result := models.GameResult{
 		GameID:  g.ID,
