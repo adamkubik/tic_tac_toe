@@ -229,7 +229,7 @@ func handleSpectatorConnection(s *models.Server, conn net.Conn, reader *bufio.Re
 	s.ActiveGamesMu.Lock()
 	game, ok := s.Games[gameID]
 	if !ok {
-		trySendMessage(conn, "Invalid game ID. Disconnecting.\n")
+		trySendMessage(conn, "Invalid game ID or the game has finished in the meantime. Disconnecting.\n")
 		conn.Close()
 		s.ActiveGamesMu.Unlock()
 		return
