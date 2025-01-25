@@ -68,7 +68,6 @@ func playGame(g *models.Game, s *models.Server) {
 		if checkWin(g.Board, g.CurrentPlayer.Symbol) {
 			g.Winner = g.CurrentPlayer
 			g.Loser = g.WaitingPlayer
-			g.OnGoing = false
 			if err := sendFinalBoard(g, board, s); err != nil {
 				return
 			}
@@ -91,6 +90,7 @@ func playGame(g *models.Game, s *models.Server) {
 }
 
 func sendFinalBoard(g *models.Game, board string, s *models.Server) error {
+	g.OnGoing = false
 	if err := sendMessageToPlayer(g.CurrentPlayer, board); err != nil {
 		handleError(g, s, err)
 		return err
