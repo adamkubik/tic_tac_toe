@@ -13,7 +13,7 @@ func main() {
 	defer dB.Close()
 
 	s := handlers.NewServer("0.0.0.0:23", dB)
-	fmt.Printf("starting server on %s\n", s.ListenAddr)
+	fmt.Printf("starting server on %s\r\n", s.ListenAddr)
 	if err := handlers.ListenAndPair(s); err != nil {
 		log.Printf("server failed: %v", err)
 	}
