@@ -29,10 +29,10 @@ func ProcessNickname(db *sql.DB, conn net.Conn, reader *bufio.Reader, nickname s
 			return false, err
 		}
 		if !valid {
-			conn.Write([]byte("Invalid password. Disconnecting.\n"))
+			conn.Write([]byte("Invalid password. Disconnecting.\r\n"))
 			return false, nil
 		}
-		conn.Write([]byte("Welcome back!\n"))
+		conn.Write([]byte("Welcome back!\r\n"))
 		return true, nil
 	} else {
 		conn.Write([]byte("Enter your password to register: "))
@@ -46,7 +46,7 @@ func ProcessNickname(db *sql.DB, conn net.Conn, reader *bufio.Reader, nickname s
 		if err != nil {
 			return false, err
 		}
-		conn.Write([]byte("You have now registered into the game.\n"))
+		conn.Write([]byte("You have now registered into the game.\r\n"))
 		return true, nil
 	}
 }
@@ -140,7 +140,7 @@ func PrintPlayerStats(dB *sql.DB, nickname string, conn net.Conn) error {
 
 	winRate := float64(wins) / float64(numberOfGames) * 100
 
-	stats := fmt.Sprintf("%s:\nall_games: %d\nwins: %d\nlosses: %d\ndraws: %d\nwinrate: %.2f%%\n", nickname, numberOfGames, wins, losses, draws, winRate)
+	stats := fmt.Sprintf("%s:\r\nall_games: %d\r\nwins: %d\r\nlosses: %d\r\ndraws: %d\r\nwinrate: %.2f%%\r\n", nickname, numberOfGames, wins, losses, draws, winRate)
 	_, err = conn.Write([]byte(stats))
 	if err != nil {
 		log.Printf("error writing player stats to connection: %v", err)
@@ -166,7 +166,7 @@ func PrintTopPlayers(db *sql.DB, conn net.Conn) error {
 	defer rows.Close()
 
 	var builder strings.Builder
-	builder.WriteString("Top 10 Players:\n")
+	builder.WriteString("Top 10 Players:\r\n")
 
 	for rows.Next() {
 		var nickname string
@@ -177,7 +177,7 @@ func PrintTopPlayers(db *sql.DB, conn net.Conn) error {
 			log.Printf("error scanning top player: %v", err)
 			return err
 		}
-		builder.WriteString(fmt.Sprintf("%s: winrate: %.2f%%\n", nickname, winRate*100))
+		builder.WriteString(fmt.Sprintf("%s: winrate: %.2f%%\r\n", nickname, winRate*100))
 	}
 
 	if err = rows.Err(); err != nil {
