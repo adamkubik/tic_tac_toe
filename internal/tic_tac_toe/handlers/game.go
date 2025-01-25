@@ -34,11 +34,11 @@ func StartGame(p1 models.Player, p2 models.Player, s *models.Server) {
 	s.Games[gameId] = &g
 	s.ActiveGamesMu.Unlock()
 
-	if err := sendMessageToPlayer(g.CurrentPlayer, "The game is starting... you're player 'X'\n"); err != nil {
+	if err := sendMessageToPlayer(g.CurrentPlayer, "The game is starting... you're player 'X'\r\n"); err != nil {
 		handleError(&g, s, err)
 		return
 	}
-	if err := sendMessageToPlayer(g.WaitingPlayer, "The game is starting... you're player '0'\n"); err != nil {
+	if err := sendMessageToPlayer(g.WaitingPlayer, "The game is starting... you're player '0'\r\n"); err != nil {
 		handleError(&g, s, err)
 		return
 	}
@@ -53,7 +53,7 @@ func playGame(g *models.Game, s *models.Server) {
 			handleError(g, s, err)
 			return
 		}
-		if err := sendMessageToPlayer(g.WaitingPlayer, "Waiting for your oponent's turn...\n"); err != nil {
+		if err := sendMessageToPlayer(g.WaitingPlayer, "Waiting for your oponent's turn...\r\n"); err != nil {
 			handleError(g, s, err)
 			return
 		}
@@ -113,7 +113,7 @@ func tryGetMove(g *models.Game) error {
 
 		row, col, err = validateMove(move, g.Board)
 		if err != nil {
-			if err := sendMessageToPlayer(g.CurrentPlayer, fmt.Sprintf("Invalid move: %s. Try again.\n", err.Error())); err != nil {
+			if err := sendMessageToPlayer(g.CurrentPlayer, fmt.Sprintf("Invalid move: %s. Try again.\r\n", err.Error())); err != nil {
 				return err
 			}
 			continue
@@ -132,8 +132,8 @@ func updateBoard(g *models.Game, row int, col int) {
 func getBoard(board *[3][3]string) string {
 	var boardStr strings.Builder
 
-	boardStr.WriteString("\n")
-	boardStr.WriteString("   1   2   3\n")
+	boardStr.WriteString("\r\n")
+	boardStr.WriteString("   1   2   3\r\n")
 	rows := []string{"A ", "B ", "C "}
 
 	for i, row := range board {
@@ -148,13 +148,13 @@ func getBoard(board *[3][3]string) string {
 				boardStr.WriteString("|")
 			}
 		}
-		boardStr.WriteString("\n")
+		boardStr.WriteString("\r\n")
 
 		if i < 2 {
-			boardStr.WriteString("  -----------\n")
+			boardStr.WriteString("  -----------\r\n")
 		}
 	}
-	boardStr.WriteString("\n")
+	boardStr.WriteString("\r\n")
 
 	return boardStr.String()
 }
@@ -172,7 +172,7 @@ func sendToSpectators(game *models.Game, msg string) {
 			continue
 		}
 		if game.OnGoing {
-			_, err = spectator.Conn.Write([]byte(fmt.Sprintf("%s's turn:\n", game.CurrentPlayer.NickName)))
+			_, err = spectator.Conn.Write([]byte(fmt.Sprintf("%s's turn:\r\n", game.CurrentPlayer.NickName)))
 			if err != nil {
 				spectator.Conn.Close()
 				removeSpectator(game, &spectator)
@@ -299,9 +299,9 @@ func announceResult(g *models.Game, s *models.Server) {
 	if g.Winner != nil {
 		result.Winner = g.Winner
 		result.Loser = g.Loser
-		resultMessage = fmt.Sprintf("Game Over. %s wins!\n", g.Winner.NickName)
+		resultMessage = fmt.Sprintf("Game Over. %s wins!\r\n", g.Winner.NickName)
 	} else {
-		resultMessage = "Game Over. It's a draw!\n"
+		resultMessage = "Game Over. It's a draw!\r\n"
 	}
 
 	if err := sendMessageToPlayer(&g.Player1, resultMessage); err != nil {
@@ -340,9 +340,9 @@ func sendMessageToPlayer(player *models.Player, message string) error {
 }
 
 func handleError(g *models.Game, s *models.Server, err error) {
-	fmt.Printf("Error occurred in game %s: %s\n", g.ID, err)
+	fmt.Printf("Error occurred in game %s: %s\r\n", g.ID, err)
 
-	errorMessage := fmt.Sprintf("Game Over due to an error: %s\n", err.Error())
+	errorMessage := fmt.Sprintf("Game Over due to an error: %s\r\n", err.Error())
 
 	sendMessageToPlayer(g.CurrentPlayer, errorMessage)
 	sendMessageToPlayer(g.WaitingPlayer, errorMessage)
