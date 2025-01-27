@@ -31,7 +31,7 @@ func ProcessNickname(db *sql.DB, conn net.Conn, reader *bufio.Reader, nickname s
 		if !valid {
 			return false, nil
 		}
-		conn.Write([]byte("Welcome back!\r\n"))
+		conn.Write([]byte("\r\nWelcome back!\r\n"))
 		return true, nil
 	} else {
 		conn.Write([]byte("Enter your password to register: "))
