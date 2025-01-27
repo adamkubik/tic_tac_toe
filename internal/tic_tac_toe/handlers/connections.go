@@ -158,10 +158,10 @@ func handleBasicCommands(s *models.Server, conn net.Conn, reader *bufio.Reader, 
 		if err != nil {
 			return err
 		}
-		if _, err := conn.Write([]byte("\r\n")); err != nil {
-			log.Printf("error writing to connection: %v", err)
+		if err := trySendMessage(conn, "\r\n"); err != nil {
 			return err
 		}
+
 		choice = strings.TrimSpace(strings.ToLower(choice))
 
 		switch choice {
@@ -172,8 +172,7 @@ func handleBasicCommands(s *models.Server, conn net.Conn, reader *bufio.Reader, 
 			handleStatsRequest(s, conn, nickname)
 		case "top10":
 			if err := PrintTopPlayers(s.DB, conn); err != nil {
-				if _, err := conn.Write([]byte("Error printing top10 players.\r\n")); err != nil {
-					log.Printf("error writing to connection: %v", err)
+				if err := trySendMessage(conn, "Error printing top10 players.\r\n"); err != nil {
 					return err
 				}
 				return err
