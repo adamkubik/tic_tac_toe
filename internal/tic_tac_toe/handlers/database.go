@@ -137,7 +137,13 @@ func PrintPlayerStats(dB *sql.DB, nickname string, conn net.Conn) error {
 		return err
 	}
 
-	winRate := float64(wins) / float64(numberOfGames) * 100
+	var winRate float64
+	if numberOfGames == 0 {
+		winRate = 0
+	} else {
+		winRate = float64(wins) / float64(numberOfGames) * 100
+	}
+
 	winRateStr := fmt.Sprintf("%.1f%%", winRate)
 
 	stats := fmt.Sprintf(
