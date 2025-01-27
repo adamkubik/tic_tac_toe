@@ -127,7 +127,7 @@ func handleLogin(s *models.Server, conn net.Conn, reader *bufio.Reader) {
 			return
 		}
 
-		trySendMessage(conn, fmt.Sprintf("Invalid password. Try again. Only %d attemp(s) remaining.\r\n", 2-attempt))
+		trySendMessage(conn, fmt.Sprintf("Invalid password. Try again. %d attempt(s) left.\r\n", 2-attempt))
 	}
 
 	s.ActiveUsers[nickname] = conn
