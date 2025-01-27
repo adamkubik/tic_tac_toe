@@ -29,7 +29,6 @@ func ProcessNickname(db *sql.DB, conn net.Conn, reader *bufio.Reader, nickname s
 			return false, err
 		}
 		if !valid {
-			conn.Write([]byte("Invalid password. Disconnecting.\r\n"))
 			return false, nil
 		}
 		conn.Write([]byte("Welcome back!\r\n"))
@@ -169,7 +168,7 @@ func PrintTopPlayers(db *sql.DB, conn net.Conn) error {
 	defer rows.Close()
 
 	var builder strings.Builder
-	builder.WriteString("Top 10 Players:\r\n")
+	builder.WriteString("\r\nTop 10 Players:\r\n")
 
 	for rows.Next() {
 		var nickname string
@@ -180,7 +179,7 @@ func PrintTopPlayers(db *sql.DB, conn net.Conn) error {
 			log.Printf("error scanning top player: %v", err)
 			return err
 		}
-		builder.WriteString(fmt.Sprintf("%s: winrate: %.2f%%\r\n", nickname, winRate*100))
+		builder.WriteString(fmt.Sprintf("%s's winrate: %.2f%%\r\n", nickname, winRate*100))
 	}
 
 	if err = rows.Err(); err != nil {

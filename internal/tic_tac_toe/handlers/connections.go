@@ -97,6 +97,7 @@ func handleLogin(s *models.Server, conn net.Conn, reader *bufio.Reader) {
 	log.Printf("received nickname %s from %s", nickname, conn.RemoteAddr())
 
 	s.ActiveUsersMu.Lock()
+
 	if _, exists := s.ActiveUsers[nickname]; exists {
 		trySendMessage(conn, "User already logged in. Disconnecting.\r\n")
 		conn.Close()
@@ -104,58 +105,70 @@ func handleLogin(s *models.Server, conn net.Conn, reader *bufio.Reader) {
 		return
 	}
 
-	succ, err := ProcessNickname(s.DB, conn, reader, nickname)
-	if err != nil {
-		trySendMessage(conn, "Error processing nickname. Disconnecting.\r\n")
-		conn.Close()
-		s.ActiveUsersMu.Lock()
-		return
-	}
+	for attempt := 0; attempt < 3; attempt++ {
+		succ, err := ProcessNickname(s.DB, conn, reader, nickname)
+		if err != nil {
+			trySendMessage(conn, "Error processing nickname. Disconnecting.\r\n")
+			conn.Close()
+			s.ActiveUsersMu.Unlock()
+			handleLogout(s, nickname)
+			return
+		}
 
-	if !succ {
-		conn.Close()
-		s.ActiveUsersMu.Lock()
-		return
+		if succ {
+			break
+		}
+
+		if attempt == 2 {
+			trySendMessage(conn, "Invalid password. Disconnecting.\r\n")
+			conn.Close()
+			s.ActiveUsersMu.Unlock()
+			handleLogout(s, nickname)
+			return
+		}
+
+		trySendMessage(conn, fmt.Sprintf("Invalid password. Try again. Only %d attemp(s) remaining.\r\n", 2-attempt))
 	}
 
 	s.ActiveUsers[nickname] = conn
 	s.ActiveUsersMu.Unlock()
 
+	if err := handleBasicCommands(s, conn, reader, nickname); err != nil {
+		conn.Close()
+		handleLogout(s, nickname)
+	}
+}
+
+func handleBasicCommands(s *models.Server, conn net.Conn, reader *bufio.Reader, nickname string) error {
 	for {
 		if err := trySendMessage(conn, "\r\nEnter: 'play' to join a game,\r\n       'stats' to view your statistics,\r\n       'top10' to view top 10 players or\r\n       'quit' to quit: "); err != nil {
-			handleLogout(s, nickname)
-			return
+			return err
 		}
 
 		choice, err := tryReadMessage(conn, reader)
 		if err != nil {
-			handleLogout(s, nickname)
-			return
+			return err
 		}
 		choice = strings.TrimSpace(strings.ToLower(choice))
 
-		if choice == "play" {
+		switch choice {
+		case "play":
 			handlePlayerConnection(s, conn, nickname)
-			break
-		} else if choice == "stats" {
+			return nil
+		case "stats":
 			handleStatsRequest(s, conn, nickname)
-		} else if choice == "top10" {
-			err := PrintTopPlayers(s.DB, conn)
-			if err != nil {
+		case "top10":
+			if err := PrintTopPlayers(s.DB, conn); err != nil {
 				conn.Write([]byte("Error printing top10 players.\r\n"))
-				conn.Close()
-				handleLogout(s, nickname)
-				return
+				return err
 			}
-		} else if choice == "quit" {
+		case "quit":
 			conn.Close()
 			handleLogout(s, nickname)
-			break
-		} else {
-			if err := trySendMessage(conn, "Invalid choice. Please enter 'play', 'stats' 'top10' or 'quit': \r\n"); err != nil {
-				conn.Close()
-				handleLogout(s, nickname)
-				return
+			return nil
+		default:
+			if err := trySendMessage(conn, "Invalid choice. Please enter 'play', 'stats', 'top10' or 'quit': \r\n"); err != nil {
+				return err
 			}
 		}
 	}
