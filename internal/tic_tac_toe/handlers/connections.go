@@ -149,6 +149,7 @@ func handleBasicCommands(s *models.Server, conn net.Conn, reader *bufio.Reader, 
 		if err != nil {
 			return err
 		}
+		conn.Write([]byte("\r\n"))
 		choice = strings.TrimSpace(strings.ToLower(choice))
 
 		switch choice {
@@ -291,6 +292,5 @@ func tryReadMessage(conn net.Conn, reader *bufio.Reader) (string, error) {
 		conn.Close()
 		return "", err
 	}
-	conn.Write([]byte("\r\n"))
 	return msg, nil
 }
