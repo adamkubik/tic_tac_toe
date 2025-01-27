@@ -17,7 +17,10 @@ func ProcessNickname(db *sql.DB, conn net.Conn, reader *bufio.Reader, nickname s
 	}
 
 	if exists {
-		conn.Write([]byte("Enter your password: "))
+		if _, err := conn.Write([]byte("Enter your password: ")); err != nil {
+			log.Printf("error writing to connection: %v", err)
+			return false, err
+		}
 		password, err := reader.ReadString('\n')
 		if err != nil {
 			log.Printf("error reading password: %v", err)
@@ -31,10 +34,16 @@ func ProcessNickname(db *sql.DB, conn net.Conn, reader *bufio.Reader, nickname s
 		if !valid {
 			return false, nil
 		}
-		conn.Write([]byte("\r\nWelcome back!\r\n"))
+		if _, err := conn.Write([]byte("\r\nWelcome back!\r\n")); err != nil {
+			log.Printf("error writing to connection: %v", err)
+			return false, err
+		}
 		return true, nil
 	} else {
-		conn.Write([]byte("Enter your password to register: "))
+		if _, err := conn.Write([]byte("Enter your password to register: ")); err != nil {
+			log.Printf("error writing to connection: %v", err)
+			return false, err
+		}
 		password, err := reader.ReadString('\n')
 		if err != nil {
 			log.Printf("error reading password: %v", err)
@@ -45,7 +54,10 @@ func ProcessNickname(db *sql.DB, conn net.Conn, reader *bufio.Reader, nickname s
 		if err != nil {
 			return false, err
 		}
-		conn.Write([]byte("You have now registered into the game.\r\n"))
+		if _, err := conn.Write([]byte("You have now registered into the game.\r\n")); err != nil {
+			log.Printf("error writing to connection: %v", err)
+			return false, err
+		}
 		return true, nil
 	}
 }
