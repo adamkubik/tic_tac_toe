@@ -153,9 +153,12 @@ func PrintPlayerStats(dB *sql.DB, nickname string, conn net.Conn) error {
 func PrintTopPlayers(db *sql.DB, conn net.Conn) error {
 	query := `
         SELECT nickname, wins, all_games, 
-        CAST(wins AS FLOAT) / CAST(all_games AS FLOAT) AS winrate 
-        FROM players 
-        ORDER BY winrate DESC 
+        CASE 
+            WHEN all_games = 0 THEN 0
+            ELSE CAST(wins AS FLOAT) / CAST(all_games AS FLOAT)
+        END AS winrate
+        FROM players
+        ORDER BY winrate DESC
         LIMIT 10
     `
 	rows, err := db.Query(query)
