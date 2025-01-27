@@ -142,7 +142,7 @@ func handleLogin(s *models.Server, conn net.Conn, reader *bufio.Reader) {
 		} else if choice == "top10" {
 			err := PrintTopPlayers(s.DB, conn)
 			if err != nil {
-				conn.Write([]byte("kasfnskjnvks"))
+				conn.Write([]byte("Error printing top10 players.\r\n"))
 				conn.Close()
 				handleLogout(s, nickname)
 				return
