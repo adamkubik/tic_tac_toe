@@ -138,8 +138,23 @@ func PrintPlayerStats(dB *sql.DB, nickname string, conn net.Conn) error {
 	}
 
 	winRate := float64(wins) / float64(numberOfGames) * 100
+	winRateStr := fmt.Sprintf("%.1f%%", winRate)
 
-	stats := fmt.Sprintf("%s'stats:\r\nAll games: %2d\r\nWins: %7d\r\nLosses: %5d\r\nDraws: %6d\r\nWinrate: %7.1f%%\r\n", nickname, numberOfGames, wins, losses, draws, winRate)
+	stats := fmt.Sprintf(
+		"%s's stats:\r\n"+
+			"%-12s %-6d\r\n"+
+			"%-12s %-6d\r\n"+
+			"%-12s %-6d\r\n"+
+			"%-12s %-6d\r\n"+
+			"%-12s %-6s\r\n",
+		nickname,
+		"All games:", numberOfGames,
+		"Wins:", wins,
+		"Losses:", losses,
+		"Draws:", draws,
+		"Winrate:", winRateStr,
+	)
+
 	_, err = conn.Write([]byte(stats))
 	if err != nil {
 		log.Printf("error writing player stats to connection: %v", err)
