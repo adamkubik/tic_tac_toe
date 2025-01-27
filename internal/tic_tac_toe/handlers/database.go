@@ -169,8 +169,9 @@ func PrintTopPlayers(db *sql.DB, conn net.Conn) error {
 
 	var builder strings.Builder
 	builder.WriteString("\r\nTop 10 Players:\r\n")
+	builder.WriteString(fmt.Sprintf("    %-20s %-10s\r\n", "Nickname", "Winrate"))
 
-	for rows.Next() {
+	for player := 1; rows.Next(); player++ {
 		var nickname string
 		var wins, numberOfGames int
 		var winRate float64
@@ -179,7 +180,7 @@ func PrintTopPlayers(db *sql.DB, conn net.Conn) error {
 			log.Printf("error scanning top player: %v", err)
 			return err
 		}
-		builder.WriteString(fmt.Sprintf("%s's winrate: %.2f%%\r\n", nickname, winRate*100))
+		builder.WriteString(fmt.Sprintf("%2d. %-20s %6.1f%%\r\n", player, nickname, winRate*100))
 	}
 
 	if err = rows.Err(); err != nil {
