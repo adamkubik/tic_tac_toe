@@ -78,7 +78,9 @@ func handleNewConn(s *models.Server, conn net.Conn) {
 	} else if choice == "quit" {
 		conn.Close()
 	} else {
-		trySendMessage(conn, "Invalid choice. Disconnecting.\r\n")
+		if err := trySendMessage(conn, "Invalid choice. Disconnecting.\r\n"); err != nil {
+			log.Printf("error sending message: %v", err)
+		}
 		conn.Close()
 	}
 }
@@ -99,7 +101,9 @@ func handleLogin(s *models.Server, conn net.Conn, reader *bufio.Reader) {
 	s.ActiveUsersMu.Lock()
 
 	if _, exists := s.ActiveUsers[nickname]; exists {
-		trySendMessage(conn, "User already logged in. Disconnecting.\r\n")
+		if err := trySendMessage(conn, "User already logged in. Disconnecting.\r\n"); err != nil {
+			log.Printf("error sending message: %v", err)
+		}
 		conn.Close()
 		s.ActiveUsersMu.Unlock()
 		return
@@ -108,7 +112,9 @@ func handleLogin(s *models.Server, conn net.Conn, reader *bufio.Reader) {
 	for attempt := 0; attempt < 3; attempt++ {
 		succ, err := ProcessNickname(s.DB, conn, reader, nickname)
 		if err != nil {
-			trySendMessage(conn, "Error processing nickname. Disconnecting.\r\n")
+			if err := trySendMessage(conn, "Error processing nickname. Disconnecting.\r\n"); err != nil {
+				log.Printf("error sending message: %v", err)
+			}
 			conn.Close()
 			s.ActiveUsersMu.Unlock()
 			handleLogout(s, nickname)
@@ -120,14 +126,17 @@ func handleLogin(s *models.Server, conn net.Conn, reader *bufio.Reader) {
 		}
 
 		if attempt == 2 {
-			trySendMessage(conn, "Invalid password. Disconnecting.\r\n")
+			if err := trySendMessage(conn, "Invalid password. Disconnecting.\r\n"); err != nil {
+				log.Printf("error sending message: %v", err)
+			}
 			conn.Close()
 			s.ActiveUsersMu.Unlock()
 			handleLogout(s, nickname)
 			return
 		}
-
-		trySendMessage(conn, fmt.Sprintf("Invalid password. Try again. %d attempt(s) left.\r\n", 2-attempt))
+		if err := trySendMessage(conn, fmt.Sprintf("Invalid password. Try again. %d attempt(s) left.\r\n", 2-attempt)); err != nil {
+			log.Printf("error sending message: %v", err)
+		}
 	}
 
 	s.ActiveUsers[nickname] = conn
@@ -149,7 +158,10 @@ func handleBasicCommands(s *models.Server, conn net.Conn, reader *bufio.Reader, 
 		if err != nil {
 			return err
 		}
-		conn.Write([]byte("\r\n"))
+		if _, err := conn.Write([]byte("\r\n")); err != nil {
+			log.Printf("error writing to connection: %v", err)
+			return err
+		}
 		choice = strings.TrimSpace(strings.ToLower(choice))
 
 		switch choice {
@@ -160,7 +172,10 @@ func handleBasicCommands(s *models.Server, conn net.Conn, reader *bufio.Reader, 
 			handleStatsRequest(s, conn, nickname)
 		case "top10":
 			if err := PrintTopPlayers(s.DB, conn); err != nil {
-				conn.Write([]byte("Error printing top10 players.\r\n"))
+				if _, err := conn.Write([]byte("Error printing top10 players.\r\n")); err != nil {
+					log.Printf("error writing to connection: %v", err)
+					return err
+				}
 				return err
 			}
 		case "quit":
@@ -178,7 +193,9 @@ func handleBasicCommands(s *models.Server, conn net.Conn, reader *bufio.Reader, 
 func handleStatsRequest(s *models.Server, conn net.Conn, username string) {
 	err := PrintPlayerStats(s.DB, username, conn)
 	if err != nil {
-		trySendMessage(conn, "Error retrieving statistics. Disconnecting.\r\n")
+		if err := trySendMessage(conn, "Error retrieving statistics. Disconnecting.\r\n"); err != nil {
+			log.Printf("error sending message: %v", err)
+		}
 		conn.Close()
 		handleLogout(s, username)
 		return
@@ -210,7 +227,9 @@ func handleLogout(s *models.Server, nickname string) {
 func handleSpectatorConnection(s *models.Server, conn net.Conn, reader *bufio.Reader) {
 	s.ActiveGamesMu.Lock()
 	if len(s.Games) == 0 {
-		trySendMessage(conn, "No games are currently active. Disconnecting.\r\n")
+		if err := trySendMessage(conn, "No games are currently active. Disconnecting.\r\n"); err != nil {
+			log.Printf("error sending message: %v", err)
+		}
 		conn.Close()
 		s.ActiveGamesMu.Unlock()
 		return
@@ -243,7 +262,9 @@ func handleSpectatorConnection(s *models.Server, conn net.Conn, reader *bufio.Re
 	s.ActiveGamesMu.Lock()
 	game, ok := s.Games[gameID]
 	if !ok {
-		trySendMessage(conn, "Invalid game ID or the game has finished in the meantime. Disconnecting.\n")
+		if err := trySendMessage(conn, "Invalid game ID or the game has finished in the meantime. Disconnecting.\n"); err != nil {
+			log.Printf("error sending message: %v", err)
+		}
 		conn.Close()
 		s.ActiveGamesMu.Unlock()
 		return
