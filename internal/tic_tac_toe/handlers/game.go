@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"log"
 	"strings"
 	"tic_tac_toe/internal/tic_tac_toe/models"
 
@@ -344,10 +345,16 @@ func handleError(g *models.Game, s *models.Server, err error) {
 
 	errorMessage := fmt.Sprintf("Game Over due to an error: %s\r\n", err.Error())
 
-	sendMessageToPlayer(g.CurrentPlayer, errorMessage)
-	sendMessageToPlayer(g.WaitingPlayer, errorMessage)
+	if err := sendMessageToPlayer(g.CurrentPlayer, errorMessage); err != nil {
+		log.Printf("error sending message to current player: %v", err)
+	}
+	if err := sendMessageToPlayer(g.WaitingPlayer, errorMessage); err != nil {
+		log.Printf("error sending message to waiting player: %v", err)
+	}
 	for spectator := range *g.Spectators {
-		spectator.Conn.Write([]byte(errorMessage))
+		if _, err := spectator.Conn.Write([]byte(errorMessage)); err != nil {
+			log.Printf("error sending message to spectator: %v", err)
+		}
 	}
 
 	disconnectSpectators(g)
