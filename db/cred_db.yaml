@@ -1,0 +1,6 @@
+db:
+  host: "34.116.171.73"
+  port: "5432"
+  user: "postgres"
+  password: "fialovamackanevielietat"
+  name: "tic-tac-toe"
