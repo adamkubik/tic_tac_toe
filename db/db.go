@@ -4,28 +4,31 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
 	"tic_tac_toe/internal/tic_tac_toe/models"
 
 	_ "github.com/lib/pq"
-	"github.com/spf13/viper"
 )
 
 func LoadConfig() *models.Config {
-	viper.SetConfigName("cred_db")
-	viper.SetConfigType("yaml")
-	viper.AddConfigPath("db")
-
-	if err := viper.ReadInConfig(); err != nil {
-		log.Fatalf("Error reading config file, %s", err)
-	}
-
 	return &models.Config{
-		DBHost:     viper.GetString("db.host"),
-		DBPort:     viper.GetString("db.port"),
-		DBUser:     viper.GetString("db.user"),
-		DBPassword: viper.GetString("db.password"),
-		DBName:     viper.GetString("db.name"),
+		DBHost:     getEnv("DB_HOST", "localhost"),
+		DBPort:     getEnv("DB_PORT", "5432"),
+		DBUser:     getEnv("DB_USER", ""),
+		DBPassword: getEnv("DB_PASSWORD", ""),
+		DBName:     getEnv("DB_NAME", ""),
 	}
+}
+
+func getEnv(key, defaultValue string) string {
+	value, exists := os.LookupEnv(key)
+	if !exists {
+		if defaultValue == "" {
+			log.Fatalf("Environment variable %s is not set", key)
+		}
+		return defaultValue
+	}
+	return value
 }
 
 func GetDBConnectionString(c *models.Config) string {
