@@ -79,3 +79,5 @@ Contributions are welcome! Please fork the repository, create a new branch for y
 
 ---
 Thank you for using our Tic-Tac-Toe multiplayer server! If you have any questions or suggestions, feel free to open an issue in the repository.
+
+Sorry, database is currently not working. It costs too much for now :)
